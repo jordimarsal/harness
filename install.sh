@@ -4,7 +4,7 @@
 # Usage:
 #   curl -fsSL https://jordimp.net/harness/install.sh | bash -s -- --tool=claude
 #   bash install.sh [--tool=claude|opencode] [--dest DIR] [--ref REF|latest] [--force] [--update]
-#                   [--hybrid|--workflow=full|hybrid] [--modules=m1,m2] [--audit-level=basic|standard|strict]
+#                   [--hybrid|--workflow=full|hybrid] [--gauntlet] [--modules=m1,m2] [--audit-level=basic|standard|strict]
 #                   [--modules=m1,m2] [--audit-level=basic|standard|strict] [--backup[=DIR]] [--no-uv]
 #
 # --no-uv: python installs use uv by default; this flag keeps python3/pytest
@@ -40,12 +40,13 @@ while [ $# -gt 0 ]; do
     --force)         PASSTHRU+=(--force) ;;
     --update)        UPDATE=1; PASSTHRU+=(--update) ;;
     --hybrid)        PASSTHRU+=(--hybrid) ;;
+    --gauntlet)      PASSTHRU+=(--gauntlet) ;;
     --workflow=*)    PASSTHRU+=("$1") ;;
     --no-uv)         PASSTHRU+=(--no-uv) ;;
     --backup|--backup=*) PASSTHRU+=("$1") ;;
     --modules=*|--audit-level=*) PASSTHRU+=("$1") ;;
     -h|--help)
-      echo "Usage: install.sh [--tool=claude|opencode] [--dest DIR] [--ref REF|latest] [--force] [--update] [--modules=...] [--audit-level=...] [--backup[=DIR]] [--hybrid|--workflow=full|hybrid] [--no-uv]"
+      echo "Usage: install.sh [--tool=claude|opencode] [--dest DIR] [--ref REF|latest] [--force] [--update] [--modules=...] [--audit-level=...] [--backup[=DIR]] [--hybrid|--workflow=full|hybrid] [--gauntlet] [--no-uv]"
       exit 0 ;;
     *) echo "install.sh: unknown argument: $1" >&2; exit 1 ;;
   esac

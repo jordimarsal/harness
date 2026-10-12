@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- **feat(gauntlet)**: new `gauntlet` module plus `--gauntlet` install shortcut —
+  a sequential adversarial review (G1 correctness → G2 adversarial → G3
+  maintainability → G4 evidence) that runs once per feature before the
+  Completion Gate. `harness/tools/gauntlet.sh --feature <name>` enforces the
+  mechanical G1 subset (spec trio, tasks all `[x]`, traceability without gaps;
+  exit 2 on vacuous invocations), the verdict lands in
+  `harness/progress/gauntlet_<name>.md`, and checkpoint **C8** hooks both the
+  reviewer (full) and the review mode (hybrid). `--gauntlet` composes with
+  `--hybrid`: one in-session agent plays the four passes sequentially with
+  per-pass evidence logs. Human gates unchanged.
+- **tests**: new `test_gauntlet_module` (`--gauntlet` + `--modules=gauntlet`
+  + `--hybrid` compose, C8 injection/removal, `gauntlet.sh` PASS/REJECT/usage
+  guards and `--json` protocol v1).
+
 ## v0.8.0 — 2026-10-09
 
 - **feat(uv)**: Python installs use [uv](https://docs.astral.sh/uv/) by

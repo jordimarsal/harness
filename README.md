@@ -21,6 +21,10 @@ curl -fsSL https://jordimp.net/harness/install.sh | bash -s -- --tool=opencode
 # solo repo, same gates, one in-session agent (reviewer becomes an
 # evidence-logged self-review; escalate for risky features):
 curl -fsSL https://jordimp.net/harness/install.sh | bash -s -- --tool=opencode --hybrid
+# small repo with teeth: hybrid plus a sequential adversarial review
+# (G1 correctness → G2 adversarial → G3 maintainability → G4 evidence)
+# before each Completion Gate:
+curl -fsSL https://jordimp.net/harness/install.sh | bash -s -- --tool=opencode --hybrid --gauntlet
 ```
 
 The installer detects your stack, copies the roles, conventions and gates, and
@@ -29,6 +33,18 @@ writes `HARNESS.md` into your repo with the next step. `--hybrid` (or
 spec-author/implementer/reviewer subagents; hybrid runs the same SDD flow and
 human gates in one session, with mandatory evidence logs. The choice is stored
 in `harness/feature_list.json` and `--update` keeps it.
+
+`--gauntlet` adds a review gauntlet on top of either workflow: after the last
+implementer batch, each feature must pass four sequential passes before it may
+request the Completion Gate. The mechanical pass runs
+`bash harness/tools/gauntlet.sh --feature <name>` (spec trio, tasks all `[x]`,
+traceability without gaps — never a vacuous PASS); the judgment passes are
+recorded in `harness/progress/gauntlet_<name>.md` and enforced via checkpoint
+C8. In hybrid the same agent plays the four passes one at a time with per-pass
+evidence logs; in full the reviewer runs them with fresh context. The two
+human gates stay mandatory — the gauntlet filters what reaches them. As a
+module it also works as `--modules=gauntlet` and `--update
+--add-modules=gauntlet`.
 
 Python projects use **uv** by default: test/build commands are rendered as
 `uv run pytest tests` / `uv build`. Pass `--no-uv` to keep plain
@@ -135,7 +151,8 @@ anything you edited is left untouched.
 - **Implementer** — builds one batch at a time (2–4 tasks: a change plus its
   tests), gates green after every task, tests first.
 - **Reviewer** — checks requirement traceability before `done`; runs every
-  command itself instead of trusting the implementer's claims.
+  command itself instead of trusting the implementer's claims (plus the
+  G1–G4 gauntlet passes when the `gauntlet` module is installed).
 - Plus `docs/` (specs, architecture, conventions — generated for your stack
   and chosen architecture, verification) and `harness/`
   (feature list, checkpoints, progress, logs, gates).
@@ -181,6 +198,7 @@ menu:
 - `architecture-catalog` — reference catalog of architecture options for design decisions
 - `clarity` — 80% ASD-STE100 response style: short active sentences, one term one meaning, no filler
 - `decision-memory` — ADR files for decisions worth remembering beyond a feature
+- `gauntlet` — sequential adversarial review gauntlet (G1–G4) with a mechanical gate script; composes with `--hybrid` for small projects (`--gauntlet` shortcut)
 - `iterative-refinement` — adaptive iteration protocol with self-review and adversarial checklist
 - `log-reader` — delegate big-log reading to a cheap read-only subagent and verify its evidence
 - `performance-benchmarks` — benchmark verification rules and a stack-aware bench runner

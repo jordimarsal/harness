@@ -402,7 +402,7 @@ test_interactive_module_menu() {
   }
   PASS=$((PASS + 1))
   printf '%s\n' "$out" > "$d/init-output.txt"
-  for m in architecture-catalog clarity iterative-refinement decision-memory log-reader project-scanner security-audit performance-benchmarks wekan-tickets; do
+  for m in architecture-catalog clarity decision-memory gauntlet iterative-refinement log-reader project-scanner security-audit performance-benchmarks wekan-tickets; do
     assert_grep "$t" "$m" "$d/init-output.txt"
   done
   assert_grep "$t" "Audit level" "$d/init-output.txt"
@@ -888,6 +888,94 @@ test_security_audit_module() {
     echo "    FAIL: audit-security.sh should degrade to checklist-only with exit 0"
   fi
   assert_grep "$t" "Checklist" "$d/audit-report.txt"
+}
+
+test_gauntlet_module() {
+  local t="gauntlet installs protocol, gate script, verification section and C8"
+  run_test "$t"
+  local d; d=$(new_project "gauntlet")
+  (cd "$d" && "$INIT" --tool=opencode --modules=gauntlet >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: init.sh exited non-zero"); return
+  }
+  PASS=$((PASS + 1))
+  assert_file "$t" "$d/docs/gauntlet-protocol.md"
+  assert_executable "$t" "$d/harness/tools/gauntlet.sh"
+  assert_count "$t" "harness:module:gauntlet:start" "$d/docs/verification.md" 1
+  assert_grep "$t" "Gauntlet Gate" "$d/docs/verification.md"
+  assert_grep "$t" "C8 — Gauntlet" "$d/harness/CHECKPOINTS.md"
+  assert_count "$t" "harness:module:gauntlet-checkpoint:start" "$d/harness/CHECKPOINTS.md" 1
+  assert_grep "$t" '"gauntlet"' "$d/harness/feature_list.json"
+
+  # Usage guard: no --feature → exit 2, never a vacuous PASS.
+  if (cd "$d" && bash harness/tools/gauntlet.sh >/dev/null 2>&1); then
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: gauntlet.sh without --feature should fail")
+    echo "    FAIL: gauntlet.sh accepted a feature-less invocation"
+  else
+    PASS=$((PASS + 1))
+  fi
+
+  # Fixture feature: spec trio + one done task + traceability table + test.
+  mkdir -p "$d/harness/specs/demo" "$d/tests"
+  printf '# Requirements — demo\n\n- R1: the demo shall answer.\n' > "$d/harness/specs/demo/requirements.md"
+  printf '# Design — demo\n\nSingle file, no decisions.\n' > "$d/harness/specs/demo/design.md"
+  printf '# Tasks — demo\n\n- [x] T1 Cover R1 with a test\n' > "$d/harness/specs/demo/tasks.md"
+  printf '# Impl — demo\n\nfeature: demo\n\n| Requirement | Test(s) | Implementation file(s) | Status |\n| R1 | test_gauntlet_ok | src/demo.py | done |\n' > "$d/harness/progress/impl_demo.md"
+  printf 'def test_gauntlet_ok():\n    assert True\n' > "$d/tests/test_gauntlet_ok.py"
+
+  # G1 PASS on the green fixture.
+  if (cd "$d" && bash harness/tools/gauntlet.sh --feature demo > gauntlet-pass.txt 2>&1); then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: gauntlet.sh REJECTed a green fixture")
+    echo "    FAIL: gauntlet.sh should PASS the green fixture"
+  fi
+  assert_grep "$t" "G1 — feature demo: PASS" "$d/gauntlet-pass.txt"
+
+  # --json emits protocol v1 with the feature verdict.
+  if (cd "$d" && bash harness/tools/gauntlet.sh --feature demo --json > gauntlet.json 2>/dev/null); then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: gauntlet.sh --json exited non-zero"); return
+  fi
+  assert_grep "$t" '"tool": "gauntlet"' "$d/gauntlet.json"
+  assert_grep "$t" '"protocol": 1' "$d/gauntlet.json"
+  assert_grep "$t" '"verdict": "PASS"' "$d/gauntlet.json"
+
+  # REJECT when a task goes back to [ ].
+  printf '# Tasks — demo\n\n- [ ] T1 Cover R1 with a test\n' > "$d/harness/specs/demo/tasks.md"
+  if (cd "$d" && bash harness/tools/gauntlet.sh --feature demo >/dev/null 2>&1); then
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: gauntlet.sh PASSED with an open task")
+    echo "    FAIL: gauntlet.sh should REJECT an open task"
+  else
+    PASS=$((PASS + 1))
+  fi
+
+  local t2="--gauntlet shortcut composes with --hybrid and survives --update"
+  run_test "$t2"
+  local d2; d2=$(new_project "gauntlet-hybrid")
+  (cd "$d2" && "$INIT" --tool=opencode --hybrid --gauntlet >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t2: --hybrid --gauntlet install failed"); return
+  }
+  PASS=$((PASS + 1))
+  assert_file "$t2" "$d2/docs/gauntlet-protocol.md"
+  assert_executable "$t2" "$d2/harness/tools/gauntlet.sh"
+  assert_grep "$t2" '"gauntlet"' "$d2/harness/feature_list.json"
+  assert_grep "$t2" '"workflow": "hybrid"' "$d2/harness/feature_list.json"
+  assert_grep "$t2" "hybrid: one in-session agent, same gates" "$d2/AGENTS.md"
+  assert_grep "$t2" "C8 — Gauntlet" "$d2/harness/CHECKPOINTS.md"
+  (cd "$d2" && "$INIT" --update >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t2: --update failed"); return
+  }
+  PASS=$((PASS + 1))
+  assert_grep "$t2" '"gauntlet"' "$d2/harness/feature_list.json"
+  assert_file "$t2" "$d2/docs/gauntlet-protocol.md"
+  (cd "$d2" && "$INIT" --update --remove-modules=gauntlet >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t2: --remove-modules=gauntlet failed"); return
+  }
+  PASS=$((PASS + 1))
+  assert_no_file "$t2" "$d2/docs/gauntlet-protocol.md"
+  assert_no_file "$t2" "$d2/harness/tools/gauntlet.sh"
+  assert_no_grep "$t2" "C8 — Gauntlet" "$d2/harness/CHECKPOINTS.md"
 }
 
 test_modules_install_strict() {
@@ -1733,6 +1821,7 @@ test_log_reader_module
 test_clarity_module
 test_project_scanner_module
 test_security_audit_module
+test_gauntlet_module
 test_modules_install_strict
 test_audit_json_output
 test_bench_json_output

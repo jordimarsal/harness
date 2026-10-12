@@ -102,6 +102,26 @@ as text mode. Human output is the default; `--json` switches.
 
 - `verdict: "REJECT"` iff `regressions` is non-empty (exit 1); else `PASS` (exit 0).
 
+### gauntlet.sh --json
+
+```json
+{
+  "tool": "gauntlet",
+  "protocol": 1,
+  "feature": "feat-a",
+  "verdict": "PASS" | "REJECT",
+  "checks": [{"name": "tasks", "status": "ok"}],
+  "gaps": ["1 of 4 tasks still [ ] in harness/specs/feat-a/tasks.md"]
+}
+```
+
+- `--feature NAME` is mandatory (exit 2 without it — a verdict without a
+  named feature is a vacuous PASS).
+- `verdict: "REJECT"` iff `gaps` is non-empty (exit 1); else `PASS` (exit 0).
+- `checks` covers the mechanical G1 subset only (spec trio present, tasks
+  complete, traceability without gaps); G2/G3 judgment passes are recorded
+  by the agent in `harness/progress/gauntlet_<name>.md`, never by this script.
+
 ### scan.py --json
 
 Same commands as text mode; output is a single JSON object per command:

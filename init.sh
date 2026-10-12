@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # init.sh — Install the standardized harness into a project
 #
-# Usage: cd /path/to/your/project && /path/to/harness-standard/init.sh [--tool=claude|opencode] [--modules=m1,m2] [--audit-level=basic|standard|strict] [--hybrid|--workflow=full|hybrid] [--force] [--update] [--backup[=DIR]] [--architecture=<name>] [--add-modules=m1,m2] [--remove-modules=m1,m2] [--no-uv]
+# Usage: cd /path/to/your/project && /path/to/harness-standard/init.sh [--tool=claude|opencode] [--modules=m1,m2] [--audit-level=basic|standard|strict] [--hybrid|--workflow=full|hybrid] [--gauntlet] [--force] [--update] [--backup[=DIR]] [--architecture=<name>] [--add-modules=m1,m2] [--remove-modules=m1,m2] [--no-uv]
 #
 # Detects tech stack, asks which AI tool drives the harness (claude / opencode),
 # copies templates and adapts configuration.
@@ -78,6 +78,7 @@ ARCH_FLAG=""
 REMOVED_MODULES=()
 AUDIT_LEVEL=""
 WORKFLOW_FLAG=""
+GAUNTLET=0
 NO_UV=0
 for arg in "$@"; do
   case "$arg" in
@@ -94,10 +95,11 @@ for arg in "$@"; do
     --audit-level=*) AUDIT_LEVEL="${arg#--audit-level=}" ;;
     --hybrid)        WORKFLOW_FLAG="hybrid" ;;
     --workflow=*)    WORKFLOW_FLAG="${arg#--workflow=}" ;;
+    --gauntlet)      GAUNTLET=1 ;;
     --no-uv)         NO_UV=1 ;;
     *)
       fail "Unknown argument: $arg"
-      fail "Usage: init.sh [--tool=claude|opencode] [--modules=m1,m2] [--audit-level=basic|standard|strict] [--force] [--update] [--backup[=DIR]] [--architecture=<name>] [--add-modules=m1,m2] [--remove-modules=m1,m2] [--no-uv]"
+      fail "Usage: init.sh [--tool=claude|opencode] [--modules=m1,m2] [--audit-level=basic|standard|strict] [--force] [--update] [--backup[=DIR]] [--architecture=<name>] [--add-modules=m1,m2] [--remove-modules=m1,m2] [--gauntlet] [--no-uv]"
       exit 1
       ;;
   esac
@@ -128,6 +130,9 @@ fi
 # hybrid: the same SDD discipline and human gates, executed by one in-session
 # agent — roles become modes, evidence logs replace dispatches (see the
 # workflow section of the installed entry file).
+# --gauntlet (flag parsed above) appends the gauntlet module to the selection;
+# the protocol defines a sequential single-session mode, so it composes with
+# --hybrid for small projects.
 WORKFLOW="full"
 # Snapshot dir for entry files: --force/--update preserve the project block
 # they carry (preserve_project_block); fresh installs never populate it.
@@ -422,6 +427,23 @@ else
   fi
 fi
 
+# --gauntlet shortcut: equivalent to adding the gauntlet module. Works with
+# --hybrid (the protocol defines a sequential single-session mode) and stacks
+# onto any --modules/--add-modules selection without dropping anything.
+if [ "$GAUNTLET" -eq 1 ]; then
+  _has_gauntlet=0
+  for _m in "${MODULES_SELECTED[@]:+${MODULES_SELECTED[@]}}"; do
+    [ "$_m" = "gauntlet" ] && _has_gauntlet=1
+  done
+  if [ "$_has_gauntlet" -eq 0 ]; then
+    if module_supports_stack "gauntlet" "$STACK"; then
+      MODULES_SELECTED+=("gauntlet")
+    else
+      warn "Module 'gauntlet' does not support stack '$STACK' — skipped."
+    fi
+  fi
+fi
+
 # Architecture picker (fresh installs on a TTY; --update uses --architecture=).
 ARCH_MAP=()
 if [ -z "$ARCH_FLAG" ] && is_interactive && [ "$UPDATE" -eq 0 ]; then
@@ -548,7 +570,12 @@ backup_collision() {  # backup_collision <relative-path>
   local rel="$1" dest
   dest="$BACKUP_DIR/$rel"
   if [ -e "$dest" ]; then
-    fail "Backup target already exists: $dest — aborting (nothing was overwritten)."
+    # Same-second repeat runs share the timestamped dir: when the backup
+    # already holds byte-identical content there is nothing left to preserve.
+    if cmp -s "$rel" "$dest"; then
+      return 0
+    fi
+    fail "Backup target already exists with different content: $dest — aborting (nothing was overwritten)."
     exit 1
   fi
   mkdir -p "$(dirname "$dest")"
@@ -1143,9 +1170,24 @@ if [ "${#MODULES_SELECTED[@]}" -gt 0 ]; then
           C7_DONE=1
         fi
         ;;
+      gauntlet)
+        inject_append_section "./harness/CHECKPOINTS.md" "gauntlet-checkpoint" \
+          "$TEMPLATES_DIR/modules/_shared/c8-gauntlet.md"
+        ;;
     esac
   done
   info "Modules installed: ${MODULES_SELECTED[*]}"
+fi
+# No gauntlet module left → the C8 gauntlet checkpoint goes too.
+if ! printf '%s\n' "${MODULES_SELECTED[*]:-}" | grep -qE '(^|[[:space:]])gauntlet($|[[:space:]])'; then
+  if [ -f "harness/CHECKPOINTS.md" ] && grep -qF "<!-- harness:module:gauntlet-checkpoint:start -->" harness/CHECKPOINTS.md; then
+    awk -v start="<!-- harness:module:gauntlet-checkpoint:start -->" -v end="<!-- harness:module:gauntlet-checkpoint:end -->" '
+      index($0, start) { inblk = 1 }
+      inblk && index($0, end) { inblk = 0; next }
+      !inblk { print }
+    ' harness/CHECKPOINTS.md > harness/CHECKPOINTS.md.tmp && mv harness/CHECKPOINTS.md.tmp harness/CHECKPOINTS.md
+    ok "Removed gauntlet checkpoint (gauntlet module not installed)"
+  fi
 fi
 # No audit module left → the C7 audit checkpoint goes too.
 if ! printf '%s\n' "${MODULES_SELECTED[*]:-}" | grep -qE 'security-audit|performance-benchmarks'; then
