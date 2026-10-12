@@ -15,6 +15,11 @@
 - **tests**: new `test_gauntlet_module` (`--gauntlet` + `--modules=gauntlet`
   + `--hybrid` compose, C8 injection/removal, `gauntlet.sh` PASS/REJECT/usage
   guards and `--json` protocol v1).
+- **fix(performance-benchmarks)**: baseline-comparison gate in `bench.sh` no
+  longer inverted — removed the `!` before `python3 - … <<'PYEOF'`; python exits
+  0 on no-regressions so the success branch now sets `COMPARED=1` and the else
+  branch sets `REJECT=1`. The bug rejected clean runs and accepted regressed ones;
+  downstream ggufbench had already applied this fix locally.
 
 ## v0.8.0 — 2026-10-09
 

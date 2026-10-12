@@ -94,7 +94,9 @@ if [ "$MEASURED" -eq 1 ] \
    && [ -f "harness/.bench-last.json" ]; then
   [ "$JSON" -eq 1 ] || echo ""
   [ "$JSON" -eq 1 ] || echo "## Baseline comparison"
-  if ! python3 - "$BASELINES" "harness/.bench-last.json" "$OUT.regres" <<'PYEOF'; then
+  # The `!` inverted the gate: python exits 0 on no-regressions, so ! then
+  # rejected clean runs and accepted regressed ones. Fixed below.
+  if python3 - "$BASELINES" "harness/.bench-last.json" "$OUT.regres" <<'PYEOF'; then
 import json, sys
 base = json.load(open(sys.argv[1]))
 data = json.load(open(sys.argv[2]))
@@ -126,6 +128,7 @@ regres.close()
 sys.exit(1 if reject else 0)
 PYEOF
 COMPARED=1
+  else
     REJECT=1
   fi
   if [ -f "$OUT.regres" ]; then
