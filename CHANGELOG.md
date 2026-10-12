@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.8.1 — 2026-10-12
 
 - **feat(gauntlet)**: new `gauntlet` module plus `--gauntlet` install shortcut —
   a sequential adversarial review (G1 correctness → G2 adversarial → G3
