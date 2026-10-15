@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # init.sh — Install the standardized harness into a project
 #
-# Usage: cd /path/to/your/project && /path/to/harness-standard/init.sh [--tool=claude|opencode] [--modules=m1,m2] [--audit-level=basic|standard|strict] [--hybrid|--workflow=full|hybrid] [--gauntlet] [--force] [--update] [--backup[=DIR]] [--architecture=<name>] [--add-modules=m1,m2] [--remove-modules=m1,m2] [--no-uv]
+# Usage: cd /path/to/your/project && /path/to/harness/init.sh [--tool=claude|opencode] [--modules=m1,m2] [--audit-level=basic|standard|strict] [--hybrid|--workflow=full|hybrid] [--gauntlet] [--force] [--update] [--backup[=DIR]] [--architecture=<name>] [--add-modules=m1,m2] [--remove-modules=m1,m2] [--no-uv]
 #
 # Detects tech stack, asks which AI tool drives the harness (claude / opencode),
 # copies templates and adapts configuration.
@@ -689,7 +689,9 @@ if [ "$FORCE" -eq 1 ]; then
     if [ -f "$_doc" ] && ! cmp -s "$_doc" "$TEMPLATES_DIR/$_doc"; then backup_collision "$_doc"; fi
   done
   # HARNESS.md is regenerated; back it up only when it was not harness-generated.
-  if [ -f "HARNESS.md" ] && ! grep -q "Installed with \[harness-standard\]" HARNESS.md; then
+  # Accepts both the current and the pre-rename (harness-standard) marker so a
+  # routine --update never mistakes its own file for a user-owned one.
+  if [ -f "HARNESS.md" ] && ! grep -qE "Installed with \[harness(-standard)?\]" HARNESS.md; then
     backup_collision "HARNESS.md"
   fi
   rm -rf .claude/skills/wekan-tasks .opencode/skill/wekan-tasks
@@ -1216,12 +1218,12 @@ fi
 # ── Conventional Commits (every install: any tool, any workflow) ──
 # Enforced mechanically via the commit-msg hook; docs/conventions.md and the
 # entry file document the rule for the agents. A pre-existing foreign hook is
-# never touched; ours is recognized by its header marker and refreshed.
+# never touched; ours is recognized by its header marker and refreshed. Both the
+# current marker and the pre-rename (harness-standard) one count as ours.
 HOOK_INSTALLED=0
 ensure_conventional_commits() {
-  local git_dir hook src marker
+  local git_dir hook src
   src="harness/tools/commit-msg"
-  marker="installed by harness-standard"
   git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
   if [ -z "$git_dir" ]; then
     info "Not a git repository — commit-msg hook skipped (rule still documented in docs/conventions.md)"
@@ -1229,7 +1231,7 @@ ensure_conventional_commits() {
   fi
   hook="$git_dir/hooks/commit-msg"
   mkdir -p "$git_dir/hooks"
-  if [ -f "$hook" ] && ! grep -qF "$marker" "$hook"; then
+  if [ -f "$hook" ] && ! grep -qE "installed by harness(-standard)?" "$hook"; then
     warn "Existing commit-msg hook kept — source it or chain $src to add Conventional Commits checks"
     return 0
   fi
@@ -1334,7 +1336,7 @@ if [ $EXIT_CODE -eq 0 ]; then
   cat > HARNESS.md <<EOF
 # Harness — $PROJECT_NAME
 
-Installed with [harness-standard](https://github.com/jordimarsal/harness-standard) (\`$TOOL\`, \`$HARNESS_VERSION\`).
+Installed with [harness](https://github.com/jordimarsal/harness) (\`$TOOL\`, \`$HARNESS_VERSION\`).
 
 - **Stack detected:** $STACK
 - **Architecture:** ${ARCH_NAME:-generic template}
@@ -1359,10 +1361,10 @@ First prompt:
 EOF
 
   # Badge suggestion — README.md is user-owned: suggest, never write.
-  if [ -f README.md ] && ! grep -q "built with harness-standard" README.md; then
+  if [ -f README.md ] && ! grep -qE "built with harness(-standard)?" README.md; then
     echo ""
-    echo "Tip: consider adding the badge to README.md (variants: harness-standard README, Badge section):"
-    echo '  [![built with harness-standard](https://raw.githubusercontent.com/jordimarsal/harness-standard/main/assets/badge.svg)](https://github.com/jordimarsal/harness-standard)'
+    echo "Tip: consider adding the badge to README.md (variants: harness README, Badge section):"
+    echo '  [![built with harness](https://raw.githubusercontent.com/jordimarsal/harness/main/assets/badge.svg)](https://github.com/jordimarsal/harness)'
   fi
 
   echo ""

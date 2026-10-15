@@ -1,9 +1,13 @@
-# Harness Standard
+# Harness
 
-[![CI](https://github.com/jordimarsal/harness-standard/actions/workflows/ci.yml/badge.svg)](https://github.com/jordimarsal/harness-standard/actions/workflows/ci.yml)
-[![Quality Gate](docs/images/badge-quality-gate.svg)](https://jordimarsal.github.io/harness-standard/)
-[![Code Smells](docs/images/badge-code-smells.svg)](https://jordimarsal.github.io/harness-standard/)
-[![built with harness-standard](assets/badge.svg)](https://github.com/jordimarsal/harness-standard)
+> Formerly `harness-standard` — renamed October 2026. The old GitHub URL and the
+> old badge URLs redirect here; the installed contract (`harness/`, `HARNESS.md`)
+> is unchanged.
+
+[![CI](https://github.com/jordimarsal/harness/actions/workflows/ci.yml/badge.svg)](https://github.com/jordimarsal/harness/actions/workflows/ci.yml)
+[![Quality Gate](docs/images/badge-quality-gate.svg)](https://jordimarsal.github.io/harness/)
+[![Code Smells](docs/images/badge-code-smells.svg)](https://jordimarsal.github.io/harness/)
+[![built with harness](assets/badge.svg)](https://github.com/jordimarsal/harness)
 
 Install a repeatable process for coding agents in one command.
 
@@ -166,7 +170,7 @@ commit rules.
 
 Analyzed with SonarQube behind a custom quality gate ("Viatgecio Way") — current
 metrics and the raw `harness-report.json` live on the
-[quality page](https://jordimarsal.github.io/harness-standard/), published on
+[quality page](https://jordimarsal.github.io/harness/), published on
 GitHub Pages. There is deliberately no coverage number: the runtime suites are
 bash e2e install/security tests (`npm test`) and the Python tools in
 `templates/` are verified against the frozen `evals-fixtures/` corpus. After
@@ -220,24 +224,24 @@ for light-themed sites). Sites that toggle themes swap them by CSS.
 In a GitHub README of a project built with the harness:
 
 ```markdown
-[![built with harness-standard](assets/badge.svg)](https://github.com/jordimarsal/harness-standard)
+[![built with harness](assets/badge.svg)](https://github.com/jordimarsal/harness)
 ```
 
 From a different repository, use the raw URL:
 
 ```markdown
-[![built with harness-standard](https://raw.githubusercontent.com/jordimarsal/harness-standard/main/assets/badge.svg)](https://github.com/jordimarsal/harness-standard)
+[![built with harness](https://raw.githubusercontent.com/jordimarsal/harness/main/assets/badge.svg)](https://github.com/jordimarsal/harness)
 ```
 
 On a website (e.g. a footer), copy the SVGs into the site — first-party, no
 hotlinking — and wrap them in the same link. Theme-adaptive pattern:
 
 ```html
-<a href="https://github.com/jordimarsal/harness-standard" rel="noopener">
-  <img src="/assets/badge-light.svg" alt="built with harness-standard"
-       width="210" height="20" class="badge-light">
+<a href="https://github.com/jordimarsal/harness" rel="noopener">
+  <img src="/assets/badge-light.svg" alt="built with harness"
+       width="148" height="20" class="badge-light">
   <img src="/assets/badge.svg" alt="" aria-hidden="true"
-       width="210" height="20" class="badge-dark">
+       width="148" height="20" class="badge-dark">
 </a>
 <style>
   .badge-dark { display: none; }
@@ -248,8 +252,8 @@ hotlinking — and wrap them in the same link. Theme-adaptive pattern:
 </style>
 ```
 
-Badge contract: any "built with harness-standard" badge must link
-[github.com/jordimarsal/harness-standard](https://github.com/jordimarsal/harness-standard) and use the install string above verbatim.
+Badge contract: any "built with harness" badge must link
+[github.com/jordimarsal/harness](https://github.com/jordimarsal/harness) and use the install string above verbatim.
 
 ## Stacks
 

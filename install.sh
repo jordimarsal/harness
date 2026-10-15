@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh — remote bootstrap for Harness Standard.
+# install.sh — remote bootstrap for Harness (formerly harness-standard).
 #
 # Usage:
 #   curl -fsSL https://jordimp.net/harness/install.sh | bash -s -- --tool=claude
@@ -17,11 +17,11 @@
 # --backup moves files the install would overwrite (e.g. an existing AGENTS.md)
 # to harness/backup/<UTC>/ instead of aborting; nothing is ever deleted.
 #
-# Env: HARNESS_REPO_URL (default https://github.com/jordimarsal/harness-standard.git)
+# Env: HARNESS_REPO_URL (default https://github.com/jordimarsal/harness.git)
 #      HARNESS_REF      (default v0.5.0)
 set -euo pipefail
 
-REPO_URL="${HARNESS_REPO_URL:-https://github.com/jordimarsal/harness-standard.git}"
+REPO_URL="${HARNESS_REPO_URL:-https://github.com/jordimarsal/harness.git}"
 REF="${HARNESS_REF:-v0.8.1}"
 REF_GIVEN=0
 UPDATE=0
@@ -75,8 +75,8 @@ DEST_ABS="$(cd "$DEST" && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-echo "Fetching harness-standard ($REF)..."
-if ! git clone --depth 1 --branch "$REF" --quiet "$REPO_URL" "$TMP/harness-standard"; then
+echo "Fetching harness ($REF)..."
+if ! git clone --depth 1 --branch "$REF" --quiet "$REPO_URL" "$TMP/harness"; then
   echo "install.sh: unable to resolve ref '$REF' in $REPO_URL" >&2
   echo "install.sh: refusing to fall back to the default branch; pass a valid --ref." >&2
   exit 1
@@ -86,4 +86,4 @@ ARGS=()
 [ -n "$TOOL" ] && ARGS+=(--tool="$TOOL")
 ARGS+=("${PASSTHRU[@]+"${PASSTHRU[@]}"}")
 
-( cd "$DEST_ABS" && bash "$TMP/harness-standard/init.sh" "${ARGS[@]+"${ARGS[@]}"}" )
+( cd "$DEST_ABS" && bash "$TMP/harness/init.sh" "${ARGS[@]+"${ARGS[@]}"}" )

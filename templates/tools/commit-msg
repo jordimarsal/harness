@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# commit-msg — Conventional Commits guard, installed by harness-standard.
+# commit-msg — Conventional Commits guard, installed by harness.
 # Wired as .git/hooks/commit-msg; bypass one commit with `git commit --no-verify`.
 set -u
 

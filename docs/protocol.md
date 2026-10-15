@@ -1,9 +1,9 @@
 # Harness Protocol v1
 
-> This document is the machine-facing contract of harness-standard. It defines the
+> This document is the machine-facing contract of harness. It defines the
 > files a harness install produces, the invariants they obey, and the JSON output of
 > the deterministic tools. `harness-graph` (or any orchestrator) implements this
-> protocol; harness-standard defines and documents it.
+> protocol; harness defines and documents it.
 >
 > **Version:** 1.0.0 (semver). Breaking changes bump the major version and update
 > every `"protocol"` field in tool output.

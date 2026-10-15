@@ -1,6 +1,6 @@
 {
   "name": "@jordimp/harness",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Install the Harness Standard multi-agent SDD process into any repository.",
   "bin": {
     "harness-init": "bin/init.js"
@@ -18,6 +18,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jordimarsal/harness-standard.git"
+    "url": "https://github.com/jordimarsal/harness.git"
   }
 }

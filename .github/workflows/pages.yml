@@ -29,7 +29,7 @@ jobs:
 
       # enablement cannot create the Pages site from the workflow token on the
       # first run (admin-only); create it once with:
-      #   gh api -X POST repos/jordimarsal/harness-standard/pages -f build_type=workflow
+      #   gh api -X POST repos/jordimarsal/harness/pages -f build_type=workflow
       - uses: actions/configure-pages@v6
 
       - uses: actions/upload-pages-artifact@v5

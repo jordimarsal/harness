@@ -1624,7 +1624,7 @@ test_non_tty_no_prompts() {
   assert_grep "$t" '"audit_level": "basic"' "$d/harness/feature_list.json"
   assert_file "$t" "$d/CLAUDE.md"
   assert_harness_layout "$t" "$d"
-  assert_grep "$t" "Installed with \[harness-standard\]" "$d/HARNESS.md"
+  assert_grep "$t" "Installed with \[harness\]" "$d/HARNESS.md"
 
   local t2="non-TTY with explicit flags skips TTY defaults cleanly"
   run_test "$t2"
@@ -1766,7 +1766,7 @@ test_badge_suggestion() {
   PASS=$((PASS + 1))
   printf '%s\n' "$out" > "$d/init-output.txt"
   assert_grep "$t" "Tip: consider adding the badge" "$d/init-output.txt"
-  assert_grep "$t" "raw.githubusercontent.com/jordimarsal/harness-standard/main/assets/badge.svg" "$d/init-output.txt"
+  assert_grep "$t" "raw.githubusercontent.com/jordimarsal/harness/main/assets/badge.svg" "$d/init-output.txt"
   assert_grep "$t" "^# My Project" "$d/README.md"
   assert_no_grep "$t" "badge.svg" "$d/README.md"
 
@@ -1774,7 +1774,7 @@ test_badge_suggestion() {
   local t2="badge already present → no suggestion"
   run_test "$t2"
   d=$(new_project "badge-present")
-  printf '# My Project\n\n[![built with harness-standard](https://raw.githubusercontent.com/jordimarsal/harness-standard/main/assets/badge.svg)](https://github.com/jordimarsal/harness-standard)\n' > "$d/README.md"
+  printf '# My Project\n\n[![built with harness](https://raw.githubusercontent.com/jordimarsal/harness/main/assets/badge.svg)](https://github.com/jordimarsal/harness)\n' > "$d/README.md"
   out="$(cd "$d" && "$INIT" --tool=opencode </dev/null 2>&1)" || {
     FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t2: init.sh exited non-zero"); return
   }

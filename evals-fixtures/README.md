@@ -1,6 +1,6 @@
 # Eval fixtures (frozen corpus)
 
-Deterministic scenarios with known expected outcomes. Consumers: harness-standard's
+Deterministic scenarios with known expected outcomes. Consumers: harness's
 own test suite, and `harness-graph` phase-4 evals. Fixtures are versioned with the
 repo — changing a fixture invalidates historical eval results.
 

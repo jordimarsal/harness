@@ -88,7 +88,7 @@ def render_page(report: dict[str, Any]) -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>harness-standard — quality</title>
+<title>harness — quality</title>
 <style>
   :root {{ color-scheme: dark; }}
   body {{
@@ -114,7 +114,7 @@ def render_page(report: dict[str, Any]) -> str:
 </style>
 </head>
 <body>
-  <h1>harness-standard — quality</h1>
+  <h1>harness — quality</h1>
   <p class="gate">quality gate <b>{html.escape(gate.get("name", ""))}</b> · {"passing" if gate_ok else "failing"}</p>
 
   <h2>Overall (SonarQube)</h2>
@@ -139,7 +139,7 @@ def render_page(report: dict[str, Any]) -> str:
   <pre>~/homelab/sonarqube/analyze.sh -r harness-report.json harness-standard
 python3 scripts/sonar-quality.py</pre>
 
-  <a class="back" href="https://github.com/jordimarsal/harness-standard/blob/main/README.md">README</a>
+  <a class="back" href="https://github.com/jordimarsal/harness/blob/main/README.md">README</a>
   <p><small>Rendered from the scan of {html.escape(report["generatedAt"])} by the internal SonarQube
   (LAN-only dashboard). Page, badges and JSON are regenerated after each scan.</small></p>
 </body>

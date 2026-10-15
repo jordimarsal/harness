@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.2 — 2026-10-15
+
+- **chore(rename)**: `harness-standard` → `harness`. GitHub repo renamed
+  (old URLs redirect), badge text and assets updated (width 210 → 148),
+  `HARNESS.md` and the `commit-msg` hook marker now read "harness". Back-compat:
+  `--update` recognizes both the old and new `HARNESS.md` marker and both hook
+  markers, so existing installs refresh cleanly without backup noise. The
+  installed contract (`harness/`, `HARNESS.md`) and the SonarQube project key
+  (`jordimarsal:harness-standard`) are unchanged.
+
 ## v0.8.1 — 2026-10-12
 
 - **feat(gauntlet)**: new `gauntlet` module plus `--gauntlet` install shortcut —
