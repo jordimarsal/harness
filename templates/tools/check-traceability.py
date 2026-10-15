@@ -102,30 +102,31 @@ def _node_id_exists(root: Path, identifier: str) -> bool:
     )
 
 
-def _search_tests_dir(root: Path, identifier: str) -> bool:
-    """File-name stem, python function/class, or JS test title matching `identifier`."""
+def _py_file_defines(tf: Path, identifier: str) -> bool:
+    """Stem match, or an ast FunctionDef/AsyncFunctionDef/ClassDef named `identifier`."""
     import ast
 
-    tests_dir = root / "tests"
-    if not tests_dir.is_dir():
+    if tf.stem == identifier:
+        return True
+    try:
+        tree = ast.parse(tf.read_text(encoding="utf-8", errors="replace"))
+    except SyntaxError:
         return False
-    for tf in tests_dir.rglob("*.py"):
-        if tf.stem == identifier:
-            return True
-        try:
-            tree = ast.parse(tf.read_text(encoding="utf-8", errors="replace"))
-        except SyntaxError:
-            continue
-        for node in ast.walk(tree):
-            if (
-                isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-                and node.name == identifier
-            ):
-                return True
-    # JS test stacks (node:test): match the identifier inside a test()/it() title.
-    pat = re.compile(
-        rf"(?:^|[^A-Za-z0-9_])(?:test|it)\s*\(\s*['\"`][^'\"`]*{re.escape(identifier)}"
+    return any(
+        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        and node.name == identifier
+        for node in ast.walk(tree)
     )
+
+
+def _py_tests_define(tests_dir: Path, identifier: str) -> bool:
+    for tf in tests_dir.rglob("*.py"):
+        if _py_file_defines(tf, identifier):
+            return True
+    return False
+
+
+def _js_tests_mention(tests_dir: Path, pat: "re.Pattern[str]") -> bool:
     for tf in tests_dir.rglob("*.js"):
         try:
             if pat.search(tf.read_text(encoding="utf-8", errors="replace")):
@@ -133,6 +134,20 @@ def _search_tests_dir(root: Path, identifier: str) -> bool:
         except OSError:
             continue
     return False
+
+
+def _search_tests_dir(root: Path, identifier: str) -> bool:
+    """File-name stem, python function/class, or JS test title matching `identifier`."""
+    tests_dir = root / "tests"
+    if not tests_dir.is_dir():
+        return False
+    if _py_tests_define(tests_dir, identifier):
+        return True
+    # JS test stacks (node:test): match the identifier inside a test()/it() title.
+    pat = re.compile(
+        rf"(?:^|[^A-Za-z0-9_])(?:test|it)\s*\(\s*['\"`][^'\"`]*{re.escape(identifier)}"
+    )
+    return _js_tests_mention(tests_dir, pat)
 
 
 def test_identifier_exists(root: Path, identifier: str) -> bool:
@@ -251,42 +266,37 @@ def _selected_features(root: Path, all_features: bool, feature: str | None) -> l
     return [n for n in names if n in done]
 
 
-def main(argv: list[str]) -> int:
-    parsed = parse_args(argv)
-    if isinstance(parsed, int):
-        return parsed
-    as_json, all_features, feature, root = parsed
+def _validate_root(root: Path) -> int:
+    """2 with an error message when `root` is not a directory; 0 otherwise."""
+    if root.is_dir():
+        return 0
+    print(
+        f"error: root is not a directory: {root}\n"
+        "       (a bare path like harness/feature_list.json is NOT a root; "
+        "use --feature NAME or --all from the repo root)",
+        file=sys.stderr,
+    )
+    return 2
 
-    specs_dir = root / "harness" / "specs"
-    if not root.is_dir():
-        print(
-            f"error: root is not a directory: {root}\n"
-            "       (a bare path like harness/feature_list.json is NOT a root; "
-            "use --feature NAME or --all from the repo root)",
-            file=sys.stderr,
-        )
-        return 2
+
+def _feature_names(
+    root: Path, all_features: bool, feature: str | None
+) -> "list[str] | None":
+    """Features to check, or None when the request is unusable (error printed)."""
     if all_features:
         names = _selected_features(root, all_features, feature)
         if not names:
             print("error: no `done` features with a spec directory found", file=sys.stderr)
-            return 2
-    else:
-        names = [feature]
-        if not (specs_dir / feature / "requirements.md").is_file():
-            print(f"error: unknown feature (no requirements.md): {feature}", file=sys.stderr)
-            return 2
+            return None
+        return names
+    specs_dir = root / "harness" / "specs"
+    if not (specs_dir / feature / "requirements.md").is_file():
+        print(f"error: unknown feature (no requirements.md): {feature}", file=sys.stderr)
+        return None
+    return [feature]
 
-    results = [check_feature(root, n) for n in names]
-    empty = [r["name"] for r in results if r["requirements"] == 0]
-    if empty:
-        print(
-            f"error: no requirements parsed for: {', '.join(empty)} (nothing to verify)",
-            file=sys.stderr,
-        )
-        return 2
-    verdict = "PASS" if all(r["gaps"] == [] for r in results) else "FAIL"
 
+def _emit(results: "list[dict]", verdict: str, as_json: bool) -> None:
     if as_json:
         print(
             json.dumps(
@@ -304,6 +314,32 @@ def main(argv: list[str]) -> int:
             for g in r["gaps"]:
                 print(f"  [GAP] {g['requirement']}: {g['reason']}")
         print(f"VERDICT: {verdict}")
+
+
+def main(argv: list[str]) -> int:
+    parsed = parse_args(argv)
+    if isinstance(parsed, int):
+        return parsed
+    as_json, all_features, feature, root = parsed
+
+    code = _validate_root(root)
+    if code:
+        return code
+    names = _feature_names(root, all_features, feature)
+    if names is None:
+        return 2
+
+    results = [check_feature(root, n) for n in names]
+    empty = [r["name"] for r in results if r["requirements"] == 0]
+    if empty:
+        print(
+            f"error: no requirements parsed for: {', '.join(empty)} (nothing to verify)",
+            file=sys.stderr,
+        )
+        return 2
+    verdict = "PASS" if all(r["gaps"] == [] for r in results) else "FAIL"
+
+    _emit(results, verdict, as_json)
     return 0 if verdict == "PASS" else 1
 
 

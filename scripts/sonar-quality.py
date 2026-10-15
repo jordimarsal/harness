@@ -136,7 +136,7 @@ def render_page(report: dict[str, Any]) -> str:
 
   <h2>Raw data</h2>
   <p>The full scan report is published as <a href="harness-report.json">harness-report.json</a>.</p>
-  <pre>~/homelab/sonarqube/analyze.sh -r harness-report.json harness-standard
+  <pre>~/homelab/sonarqube/analyze.sh -r harness-report.json harness
 python3 scripts/sonar-quality.py</pre>
 
   <a class="back" href="https://github.com/jordimarsal/harness/blob/main/README.md">README</a>
