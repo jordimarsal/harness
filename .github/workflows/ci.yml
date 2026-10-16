@@ -27,7 +27,7 @@ jobs:
         run: node --check bin/init.js
 
       - name: Shellcheck
-        run: shellcheck init.sh install.sh init-verify.sh tests/test-install.sh
+        run: shellcheck init.sh install.sh init-verify.sh tests/test-install.sh tests/test-skill-sdd.sh tests/test-skills.sh tests/test-skill-gauntlet.sh skills/adversarial-review-gauntlet/scripts/gauntlet.sh
 
       - name: Installer e2e tests
         run: |
@@ -35,3 +35,9 @@ jobs:
           # main branch; install.sh's e2e clones --branch main from this path.
           git branch main || true
           npm test
+
+      - name: Skill tests
+        run: |
+          bash tests/test-skill-sdd.sh
+          bash tests/test-skill-gauntlet.sh
+          bash tests/test-skills.sh

@@ -4,3 +4,5 @@
 .agents/
 skills-lock.json
 evidence/
+
+__pycache__/

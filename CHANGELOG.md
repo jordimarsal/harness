@@ -1,5 +1,42 @@
 # Changelog
 
+## Unreleased
+
+- **feat(skills)**: new top-level `skills/` directory — standalone, publishable
+  skills packaged from harness's process content (first entry:
+  `spec-driven-development`). The skill generalises `templates/docs/specs.md`
+  (EARS, 3-file specs, human gates) plus a standalone port of
+  `check-traceability.py` (`.specs/` layout by default, `--specs-dir`,
+  `--tests-dir` and repeatable `--impl-glob` for harness-managed repos; same
+  protocol v1, exit codes and JSON shape). `tests/test-skill-sdd.sh` guards it
+  against the frozen eval fixtures (01/02) and a portable-layout scenario;
+  CI runs it as a new step.
+- **feat(skills)**: second standalone skill `agent-dispatch-discipline` — the
+  subagent orchestration protocol from the role definitions and workflow
+  batching rules: one dispatch = one batch (2–4 tasks, never 5+), minimal
+  dispatch anatomy, on-disk evidence checks after every batch, the
+  "Nothing was written" re-dispatch opener, fresh-session restarts at ~70%
+  context, and the file-first reply contract. Pure protocol (no scripts);
+  validated by the new generic `tests/test-skills.sh`, which enforces
+  SKILL.md frontmatter/size/reference/script validity for every skill in
+  `skills/` — future skills are covered without per-skill test scaffolding.
+- **feat(skills)**: third standalone skill `adversarial-review-gauntlet` —
+  the sequential adversarial review (G1 correctness → G2 adversarial →
+  G3 maintainability → G4 evidence) from the `gauntlet` module, with a
+  generalised port of `gauntlet.sh`: specs default to `.specs/`, the
+  traceability checker resolves via `--trace-tool`, the packaged sibling, or
+  the `spec-driven-development` sibling skill, and missing checkers REJECT
+  instead of passing vacuously. Same protocol v1 JSON and exit codes.
+  `tests/test-skill-gauntlet.sh` covers PASS (sibling + explicit tool),
+  REJECT paths (unchecked task, incomplete trio, traceability gap, missing
+  checker), usage guards, and the frozen fixture 01 (no trio → no vacuous
+  PASS).
+- **docs(traceability)**: `skills/spec-driven-development/references/
+  traceability.md` documents the test-identifier forms the checker actually
+  resolves (bare name, JS/TS title, `path::name` node id) — the dotted
+  `auth_test.R1` shape in the old `specs.md` example table does not resolve
+  and misled readers.
+
 ## v0.8.2 — 2026-10-15
 
 - **chore(rename)**: `harness-standard` → `harness`. GitHub repo renamed
