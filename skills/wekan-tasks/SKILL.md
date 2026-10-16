@@ -26,60 +26,62 @@ All connection data lives in `harness/wekan.json`:
 - `board_name` — board title (empty = project name from `harness/feature_list.json`).
 - `list_map` — SDD state → list title. Default lists: `pending`, `spec_ready`,
   `in_progress`, `blocked`, `done`. Card position == feature status.
-- `credentials_file` — path to a **gitignored** env file that must define:
-
-  ```
-  WEKAN_API_BEARER_TOKEN=...
-  WEKAN_API_USER_ID=...
-  ```
-
+- `credentials_file` — path to a **gitignored** env file defining
+  `WEKAN_API_BEARER_TOKEN` and `WEKAN_API_USER_ID`.
 - `enabled` — kill switch. If `false`, or if `harness/wekan.json` is absent, skip
   every Wekan action silently.
 
-Read secrets via bash `sed`, never with file-read tools (`.env` files are usually
-read-denied). The token may end with `=` — `cut -d= -f2` truncates it:
+**Secret handling — the agent never reads the credentials file.** The file is
+gitignored and deliberately kept outside the agent's reach; that is
+intentional. The operator (or the session bootstrap) exports
+`WEKAN_API_BEARER_TOKEN` and `WEKAN_API_USER_ID` as environment variables
+before dispatch. The agent:
+
+- reads only the two environment variables;
+- sends the token **only** to the configured Wekan `url` — never to logs,
+  error messages, progress notes, or any other host;
+- never disables TLS verification (`-k`/`--insecure` is forbidden on any
+  request that carries the token; use `--cacert` with the system CA bundle
+  or the operator-provided CA file);
+- never quotes the token value back in any output. If a request fails with
+  401/403, say "credentials rejected by the server" and stop — do not retry
+  with variations.
+
+If the environment variables are absent, skip syncing, note it once in
+`harness/progress/current.md`, and continue the SDD flow without Wekan.
+
+Session setup (the only wiring an agent does — `url` is not a secret; the
+credentials come from the environment):
 
 ```bash
 CFG_URL="$(sed -n 's/^"url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' harness/wekan.json)"
-CRED="$(sed -n 's/^"credentials_file"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' harness/wekan.json)"
-TOK="$(sed -n 's/^WEKAN_API_BEARER_TOKEN=//p' "$CRED")"
-USR="$(sed -n 's/^WEKAN_API_USER_ID=//p' "$CRED")"
-AUTH=(-H "Authorization: Bearer $TOK" -H "X-User-Id: $USR")
-# Self-signed / private-CA server: trust it explicitly via --cacert.
-# NEVER use -k/--insecure on a request that carries Authorization: Bearer.
-# WEKAN_CA_FILE="${WEKAN_CA_FILE:-/etc/ssl/certs/ca-certificates.crt}"
-# Every request: curl -sS --cacert "$WEKAN_CA_FILE" "${AUTH[@]}" ...
+AUTH=(-H "Authorization: Bearer $WEKAN_API_BEARER_TOKEN" -H "X-User-Id: $WEKAN_API_USER_ID")
+CURL=(curl -sS --cacert "${WEKAN_CA_FILE:-/etc/ssl/certs/ca-certificates.crt}")
+# every request below: "${CURL[@]}" "${AUTH[@]}" "$CFG_URL/..."
 ```
-
-If the server is unreachable or credentials fail: log once in
-`harness/progress/current.md`, stop syncing, keep working.
 
 ## Resolve the board (once per session)
 
 1. **Board lookup:** `GET /api/boards` only lists PUBLIC boards. Try it first;
-   if the board is private, fall back to a mongo lookup (only when mongo
-   credentials are available in the credentials file or the operator provides
-   them — never guess):
+   if the board is private, ask the operator for the board id (they can read
+   it from the Wekan UI URL or run any mongo lookup themselves) and export it
+   as `WEKAN_BOARD_ID`. The agent never connects to the database.
 
    ```bash
-   curl -sS --cacert "$WEKAN_CA_FILE" "${AUTH[@]}" "$CFG_URL/api/boards"   # public boards, [{_id,title},...]
-   # fallback (needs mongo creds):
-   docker exec wekan-mongo mongosh --quiet \
-     "mongodb://$MUSR:$MPW@localhost:27017/test?authSource=admin" \
-     --eval 'db.boards.findOne({title:"<project>"},{_id:1,title:1})'
+   "${CURL[@]}" "${AUTH[@]}" "$CFG_URL/api/boards"   # public boards, [{_id,title},...]
    ```
 
 2. **Create if missing** (idempotent; the creator becomes board admin) and ensure
    the five `list_map` lists exist:
 
    ```bash
-   BOARD=$(curl -sS --cacert "$WEKAN_CA_FILE" "${AUTH[@]}" -X POST "$CFG_URL/api/boards" \
+   BOARD=$(("${CURL[@]}" "${AUTH[@]}" -X POST "$CFG_URL/api/boards" \
      -H "Content-Type: application/json" -d '{"title":"<project>"}' \
-     | python3 -c "import json,sys; print(json.load(sys.stdin)['_id'])")
+     | python3 -c "import json,sys; print(json.load(sys.stdin)['_id'])"))
    # POST returns {_id, defaultSwimlaneId}; keep the swimlane id
-   SWIMLANE=$(curl -sS --cacert "$WEKAN_CA_FILE" "${AUTH[@]}" "$CFG_URL/api/boards/$BOARD" | python3 -c "import json,sys; print(json.load(sys.stdin)['defaultSwimlaneId'])")
+   SWIMLANE=$("${CURL[@]}" "${AUTH[@]}" "$CFG_URL/api/boards/$BOARD" | python3 -c "import json,sys; print(json.load(sys.stdin)['defaultSwimlaneId'])")
    for L in pending spec_ready in_progress blocked done; do
-     curl -sS --cacert "$WEKAN_CA_FILE" "${AUTH[@]}" -X POST "$CFG_URL/api/boards/$BOARD/lists" \
+     "${CURL[@]}" "${AUTH[@]}" -X POST "$CFG_URL/api/boards/$BOARD/lists" \
        -H "Content-Type: application/json" -d "{\"title\":\"$L\"}"
    done
    ```
@@ -87,7 +89,7 @@ If the server is unreachable or credentials fail: log once in
 3. **Resolve list ids** once and reuse them:
 
    ```bash
-   curl -sS --cacert "$WEKAN_CA_FILE" "${AUTH[@]}" "$CFG_URL/api/boards/$BOARD/lists"   # [{_id,title},...]
+   "${CURL[@]}" "${AUTH[@]}" "$CFG_URL/api/boards/$BOARD/lists"   # [{_id,title},...]
    ```
 
 ## Role traces (who does what, when)
@@ -110,21 +112,21 @@ re-search the board for the card.
 
 ```bash
 # Create a card — swimlaneId is REQUIRED (500 without it)
-curl -sS --cacert "$WEKAN_CA_FILE" "${AUTH[@]}" -X POST "$CFG_URL/api/boards/$BOARD/lists/$LIST_PENDING/cards" \
+"${CURL[@]}" "${AUTH[@]}" -X POST "$CFG_URL/api/boards/$BOARD/lists/$LIST_PENDING/cards" \
   -H "Content-Type: application/json" \
-  -d '{"title":"<feature title>","description":"<desc + acceptance>","authorId":"'$USR'","swimlaneId":"'$SWIMLANE'"}'
+  -d '{"title":"<feature title>","description":"<desc + acceptance>","authorId":"'$WEKAN_API_USER_ID'","swimlaneId":"'$SWIMLANE'"}'
 # → {"_id":"<cardId>"}
 
 # Move a card to another list (= state transition)
-curl -sS --cacert "$WEKAN_CA_FILE" "${AUTH[@]}" -X PUT "$CFG_URL/api/boards/$BOARD/lists/$OLD_LIST/cards/$CARD" \
+"${CURL[@]}" "${AUTH[@]}" -X PUT "$CFG_URL/api/boards/$BOARD/lists/$OLD_LIST/cards/$CARD" \
   -H "Content-Type: application/json" -d '{"listId":"'$NEW_LIST'"}'
 
 # Comment
-curl -sS --cacert "$WEKAN_CA_FILE" "${AUTH[@]}" -X POST "$CFG_URL/api/boards/$BOARD/cards/$CARD/comments" \
+"${CURL[@]}" "${AUTH[@]}" -X POST "$CFG_URL/api/boards/$BOARD/cards/$CARD/comments" \
   -H "Content-Type: application/json" -d '{"comment":"spec_ready — see harness/specs/<name>/"}'
 
 # Set startAt / endAt / dueAt (ISO 8601; date-only saves as T00:00:00Z)
-curl -sS --cacert "$WEKAN_CA_FILE" "${AUTH[@]}" -X PUT "$CFG_URL/api/boards/$BOARD/lists/$LIST/cards/$CARD" \
+"${CURL[@]}" "${AUTH[@]}" -X PUT "$CFG_URL/api/boards/$BOARD/lists/$LIST/cards/$CARD" \
   -H "Content-Type: application/json" -d '{"startAt":"2026-09-07","endAt":"2026-09-08"}'
 ```
 
@@ -132,10 +134,10 @@ curl -sS --cacert "$WEKAN_CA_FILE" "${AUTH[@]}" -X PUT "$CFG_URL/api/boards/$BOA
 
 | Symptom | Cause and fix |
 |---|---|
-| 401/403 listing `/api/boards` | That route only returns PUBLIC boards; use the mongo fallback for private boards. |
-| 401 Unauthorized | Token truncated (ends with `=`) or missing `X-User-Id`. Re-extract with `sed`; always send both headers. |
+| 401/403 listing `/api/boards` | That route only returns PUBLIC boards; get the board id from the operator for private boards. |
+| 401 Unauthorized | `WEKAN_API_BEARER_TOKEN` truncated (tokens may end with `=` — never cut on `=`) or `WEKAN_API_USER_ID` missing. Re-export both and retry once; always send both headers. |
 | 500 "Swimlane ID is required" | Add `swimlaneId` when creating the card. |
-| 405 Method Not Allowed | Wrong route/method, or the token was cut. |
+| 405 Method Not Allowed | Wrong route/method. |
 | Empty board lookup | Board does not exist yet → create it (see above). |
 
 ## Never do
