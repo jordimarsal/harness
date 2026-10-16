@@ -26,7 +26,8 @@ not a source concern: this directory is the source of truth.
 ## Funnel vs product policy
 
 Skills here are **funnel**: derived from harness's MIT-published process
-content, they ship free on the public registries (Anthropic, Block, GitHub)
+content, they ship free on the public registries (Anthropic, GitHub).
+Block's `agent-skills` marketplace was archived in June 2026 and is gone.
 as advertising for the harness itself. Original skills that were never part
 of harness (e.g. the local-LLM server-ops skill from the private llama-slots
 knowledge) are **product**: they live in the separate private
