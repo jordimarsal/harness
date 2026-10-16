@@ -38,6 +38,22 @@ spec-author/implementer/reviewer subagents; hybrid runs the same SDD flow and
 human gates in one session, with mandatory evidence logs. The choice is stored
 in `harness/feature_list.json` and `--update` keeps it.
 
+## Install the standalone skills
+
+Prefer just the process (no installer)? Every skill in [`skills/`](skills/) is
+standalone and installable with the [skills.sh](https://skills.sh) CLI:
+
+```bash
+npx skills add jordimarsal/harness                                # the whole collection
+npx skills add jordimarsal/harness --skill spec-driven-development
+npx skills add jordimarsal/harness --skill agent-dispatch-discipline
+npx skills add jordimarsal/harness --skill adversarial-review-gauntlet
+npx skills add jordimarsal/harness --skill architecture-advisor
+npx skills add jordimarsal/harness --skill clarity-style
+npx skills add jordimarsal/harness --skill wekan-tasks
+```
+
+
 `--gauntlet` adds a review gauntlet on top of either workflow: after the last
 implementer batch, each feature must pass four sequential passes before it may
 request the Completion Gate. The mechanical pass runs
