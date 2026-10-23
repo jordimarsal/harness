@@ -32,6 +32,7 @@
 | `docs/iteration-protocol.md`   | Adaptive iteration + adversarial review protocol (module: iterative-refinement) | During implementer refinement rounds |
 | `docs/gauntlet-protocol.md`    | Sequential adversarial review gauntlet G1–G4 + report format (module: gauntlet) | Before requesting the Completion Gate |
 | `docs/log-reader-protocol.md`  | Delegate big-log reading to a cheap read-only subagent + verify evidence (module: log-reader) | When a file under `harness/logs/` is too big to read in session |
+| `docs/slicing-protocol.md`     | Cut user-facing features into gated, demoable vertical slices, walking skeleton first (module: vertical-slices) | When a feature is too big for one increment |
 | `harness/tools/`               | Module tools: `audit-security.sh`, `bench.sh`, `scan.py`, `gauntlet.sh` (if present) | On review (audits, gauntlet G1) or session start (scan) |
 | `harness/decisions/`           | ADRs worth remembering beyond a feature (if present) | Before proposing a new architectural decision |
 | `harness/wekan.json`           | Wekan ticket-mirror config (if present) | When syncing workflow state to the board |

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **feat(modules)**: new optional `vertical-slices` module — cut user-facing
+  features into ordered, independently gated vertical slices, walking
+  skeleton first (S1 proves the shape end-to-end on the real stack). Each
+  slice is a first-class feature with `part_of` set to its parent: full
+  state machine and both human gates per slice, spec-lite trios (3–6
+  requirements, 3–5 tasks, `design.md` only for new decisions), and demo
+  evidence required at the slice's Completion Gate. `part_of` is now a
+  documented feature property, enforced by `validate-feature-list.py`
+  (`unknown_part_of`); leader and spec-author absorb the mode conditionally
+  on `docs/slicing-protocol.md`. Zero new states, zero new roles. Design:
+  `docs/superpowers/specs/2026-10-23-vertical-slices-mode-design.md`.
 - **feat(skills)**: new top-level `skills/` directory — standalone, publishable
   skills packaged from harness's process content (first entry:
   `spec-driven-development`). The skill generalises `templates/docs/specs.md`

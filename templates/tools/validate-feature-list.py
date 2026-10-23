@@ -109,14 +109,33 @@ def _validate_features(data: dict, err: "Callable[[str, str, str], None]") -> No
         err("features", "missing", "features array is required")
         return
     seen_ids: set[int] = set()
+    names: set[str] = set()
+    part_of_refs: list[tuple[str, str]] = []
     in_progress = 0
     for i, feat in enumerate(features):
         at = f"features[{i}]"
         status = _validate_feature(feat, at, seen_ids, err)
+        if isinstance(feat, dict):
+            fname = feat.get("name")
+            if isinstance(fname, str) and NAME_RE.match(fname):
+                names.add(fname)
+            ref = feat.get("part_of")
+            if ref is not None:
+                if not isinstance(ref, str) or not ref:
+                    err(f"{at}.part_of", "invalid_type", "part_of must be a non-empty string")
+                else:
+                    part_of_refs.append((at, ref))
         if status == "in_progress":
             in_progress += 1
         if status == "done" and isinstance(feat, dict):
             _require_done_approval(feat.get("name"), feat.get("id"), at, err)
+    for at, ref in part_of_refs:
+        if ref not in names:
+            err(
+                f"{at}.part_of",
+                "unknown_part_of",
+                f"part_of '{ref}' does not match any feature name",
+            )
     if in_progress > 1:
         err(
             "features",

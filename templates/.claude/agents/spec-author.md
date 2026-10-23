@@ -53,6 +53,11 @@ Conditional capabilities (active only when the module is installed):
 - If `harness/decisions/_template.md` exists → decisions worth remembering beyond
   this feature are ALSO copied to `harness/decisions/<feature>-<slug>.md`
   (one ADR per file, immutable, based on `_template.md`).
+- If `docs/slicing-protocol.md` exists → a user-facing feature may be cut
+  into vertical slices: the parent trio is the `## Slice Map` plus the
+  cross-slice ADRs, and each slice gets a lite trio (3–6 requirements,
+  3–5 tasks, `design.md` only for new decisions) as its own feature entry
+  with `part_of` set to the parent name.
 
 ## Task sizing — feeds implementer batches
 

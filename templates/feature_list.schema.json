@@ -97,6 +97,10 @@
           },
           "wekan_card": {
             "type": "string"
+          },
+          "part_of": {
+            "type": "string",
+            "description": "Name of the parent feature when this feature is one vertical slice of it (module: vertical-slices). Must reference an existing feature name."
           }
         }
       }

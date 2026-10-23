@@ -1,0 +1,9 @@
+{
+  "name": "vertical-slices",
+  "description": "Cut user-facing features into ordered, demoable vertical slices (walking skeleton first) — each slice is a feature with its own gates",
+  "stacks": ["typescript", "node", "android", "java", "python", "rust", "generic"],
+  "injects": [
+    { "src": "slicing-protocol.md", "dst": "docs/slicing-protocol.md", "mode": "copy" }
+  ],
+  "verify": ["docs/slicing-protocol.md"]
+}

@@ -34,6 +34,13 @@ You are the leader agent. Your only job is to **decompose and coordinate** — n
   model choice) instead of reading it yourself, and verify its quoted
   evidence against the original before acting on it. Verification failure →
   read the exact ranges yourself.
+- **vertical-slices** — if `docs/slicing-protocol.md` exists: for a
+  user-facing feature that spans UI/API/persistence and is too big for one
+  increment, cut it into vertical slices per that protocol — draft the slice
+  map (the human approves it at the parent's Spec Gate), make S1 the walking
+  skeleton, and treat each slice as a feature (`part_of` set). The Effort
+  Scaling "Very complex" row then reads: split into slices, re-apply this
+  table per slice.
 
 ## SDD Workflow (Mandatory for ALL features)
 

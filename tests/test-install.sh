@@ -402,7 +402,7 @@ test_interactive_module_menu() {
   }
   PASS=$((PASS + 1))
   printf '%s\n' "$out" > "$d/init-output.txt"
-  for m in architecture-catalog clarity decision-memory gauntlet iterative-refinement log-reader project-scanner security-audit performance-benchmarks wekan-tickets; do
+  for m in architecture-catalog clarity decision-memory gauntlet iterative-refinement log-reader project-scanner security-audit performance-benchmarks wekan-tickets vertical-slices; do
     assert_grep "$t" "$m" "$d/init-output.txt"
   done
   assert_grep "$t" "Audit level" "$d/init-output.txt"
@@ -796,6 +796,22 @@ test_log_reader_module() {
   assert_grep "$t" "Verification (dispatcher's duty" "$d/docs/log-reader-protocol.md"
 }
 
+test_vertical_slices_module() {
+  local t="vertical-slices installs protocol doc and records the module"
+  run_test "$t"
+  local d; d=$(new_project "vertical-slices")
+  (cd "$d" && "$INIT" --tool=claude --modules=vertical-slices >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: init.sh exited non-zero"); return
+  }
+  PASS=$((PASS + 1))
+  assert_file "$t" "$d/docs/slicing-protocol.md"
+  assert_grep "$t" '"vertical-slices"' "$d/harness/feature_list.json"
+  assert_grep "$t" "## The slice map" "$d/docs/slicing-protocol.md"
+  assert_grep "$t" "walking skeleton" "$d/docs/slicing-protocol.md"
+  assert_grep "$t" "part_of" "$d/docs/slicing-protocol.md"
+  assert_grep "$t" "horizontal layer in disguise" "$d/docs/slicing-protocol.md"
+}
+
 test_clarity_module() {
   local t="clarity installs style doc with tweet references and records the module"
   run_test "$t"
@@ -1183,6 +1199,42 @@ EOF
     FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: feature_list.schema.json missing or invalid")
     echo "    FAIL: schema missing/invalid"
   fi
+  # part_of: a slice referencing a real parent name validates; a ghost parent is rejected
+  cat > "$d/harness/feature_list.json" <<'EOF'
+{
+  "project": {"name": "p", "parallel": false, "modules": [], "audit_level": "basic"},
+  "features": [
+    {"id": 1, "name": "orders", "title": "Orders", "description": "parent", "acceptance": [], "status": "pending"},
+    {"id": 2, "name": "orders_skeleton", "title": "Skeleton", "description": "slice 1", "acceptance": [], "status": "pending", "part_of": "orders"}
+  ]
+}
+EOF
+  if (cd "$d" && python3 harness/tools/validate-feature-list.py harness/feature_list.json >/dev/null 2>&1); then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: validator rejected a valid part_of reference")
+    echo "    FAIL: valid part_of rejected"
+  fi
+  (cd "$d" && python3 harness/tools/validate-feature-list.py --json harness/feature_list.json > slice.json)
+  PASS=$((PASS + 1))
+  assert_grep "$t" '"valid": true' "$d/slice.json"
+  cat > "$d/harness/feature_list.json" <<'EOF'
+{
+  "project": {"name": "p", "parallel": false, "modules": [], "audit_level": "basic"},
+  "features": [
+    {"id": 2, "name": "orders_skeleton", "title": "Skeleton", "description": "slice 1", "acceptance": [], "status": "pending", "part_of": "ghost"}
+  ]
+}
+EOF
+  if (cd "$d" && python3 harness/tools/validate-feature-list.py harness/feature_list.json >/dev/null 2>&1); then
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: validator accepted an unknown part_of")
+    echo "    FAIL: ghost part_of accepted"
+  else
+    PASS=$((PASS + 1))
+  fi
+  (cd "$d" && python3 harness/tools/validate-feature-list.py --json harness/feature_list.json > ghost.json)
+  PASS=$((PASS + 1))
+  assert_grep "$t" '"code": "unknown_part_of"' "$d/ghost.json"
 }
 
 test_traceability_checker() {
@@ -1818,6 +1870,7 @@ test_invalid_module_rejected
 test_invalid_audit_level_rejected
 test_module_filtered_by_stack
 test_log_reader_module
+test_vertical_slices_module
 test_clarity_module
 test_project_scanner_module
 test_security_audit_module

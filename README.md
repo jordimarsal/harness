@@ -224,6 +224,7 @@ menu:
 - `performance-benchmarks` — benchmark verification rules and a stack-aware bench runner
 - `project-scanner` — deterministic Python project scanner for impact analysis
 - `security-audit` — security audit checklist plus SAST and dependency scan tool
+- `vertical-slices` — cut user-facing features into ordered, demoable vertical slices (walking skeleton first); each slice is a feature with its own gates
 - `wekan-tickets` — mirror every workflow state transition on a Wekan kanban board
 
 ## This website is built with it
@@ -282,7 +283,7 @@ TypeScript · Node.js · Java · Python · Android · Rust · Generic — 7 stac
 rm -rf CLAUDE.md AGENTS.md opencode.json .claude .opencode HARNESS.md \
        docs/specs.md docs/verification.md \
        docs/architecture-options.md docs/iteration-protocol.md \
-       docs/log-reader-protocol.md
+       docs/log-reader-protocol.md docs/slicing-protocol.md
 
 # 2. OPTIONAL and destructive — only if this project no longer needs them.
 # rm -rf harness docs/architecture.md docs/conventions.md
