@@ -66,6 +66,15 @@ human gates stay mandatory — the gauntlet filters what reaches them. As a
 module it also works as `--modules=gauntlet` and `--update
 --add-modules=gauntlet`.
 
+`--modules=vertical-slices` changes how big user-facing features are cut:
+instead of one spec trio and one gate at the end, the leader drafts a slice
+map (approved at the parent's Spec Gate) and each slice — walking skeleton
+first — becomes its own feature with `part_of` set, a lite spec (3–6
+requirements, 3–5 tasks), both human gates, and a recorded end-to-end demo at
+its Completion Gate. Value lands with the first slice, not the last; slices
+plus `--hybrid` is a pairing setup (one session per slice). Infrastructure
+work keeps the classic single-spec flow.
+
 Python projects use **uv** by default: test/build commands are rendered as
 `uv run pytest tests` / `uv build`. Pass `--no-uv` to keep plain
 `python3 -m pytest` commands (re-pass it on `--update` — commands are
