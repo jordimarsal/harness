@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.9.0 — 2026-10-23
 
 - **feat(modules)**: new optional `vertical-slices` module — cut user-facing
   features into ordered, independently gated vertical slices, walking
