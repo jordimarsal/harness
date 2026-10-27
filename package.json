@@ -1,6 +1,6 @@
 {
   "name": "@jordimp/harness",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Install the Harness Standard multi-agent SDD process into any repository.",
   "bin": {
     "harness-init": "bin/init.js"

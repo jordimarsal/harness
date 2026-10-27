@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.10.0 — 2026-10-27
 
 - **feat(kit)**: new top-level `agent-task-kit/` — a portable kit for
   human-led, timeboxed tasks with an AI coding agent (technical interviews,
