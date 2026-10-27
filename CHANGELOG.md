@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- **feat(kit)**: new top-level `agent-task-kit/` — a portable kit for
+  human-led, timeboxed tasks with an AI coding agent (technical interviews,
+  timed exercises, pair sessions). Three artifacts that reinforce each other:
+  `CHECKLIST.md` (the lead's operational runbook: quick path, git/check
+  commands, per-phase prompts), the `delegated-task-discipline` Agent Skill
+  (the agent's working contract: one objective per prompt, plan before edits,
+  small reviewed diffs, no test edits or new dependencies, evidence-based
+  reporting, stop rules after two failures), and the `/task-protocol`
+  OpenCode command that injects the checklist and sets the working agreement.
+  Self-contained installer (`agent-task-kit/install.sh`): symlinks the skill
+  into `~/.config/opencode/skills/` and writes the command; the skill is
+  standard Agent Skills and also links into `~/.claude/skills` or
+  `~/.agents/skills`. MIT.
+
 ## v0.9.0 — 2026-10-23
 
 - **feat(modules)**: new optional `vertical-slices` module — cut user-facing

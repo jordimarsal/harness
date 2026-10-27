@@ -53,6 +53,19 @@ npx skills add jordimarsal/harness --skill clarity-style
 npx skills add jordimarsal/harness --skill wekan-tasks
 ```
 
+## Run a human-led task with an agent
+
+[`agent-task-kit/`](agent-task-kit/) packages the delegated-task protocol for
+timeboxed, human-led sessions — technical interviews, timed exercises, or pair
+work. You keep the gates; the agent works as a disciplined implementer:
+
+```bash
+harness/agent-task-kit/install.sh   # symlink the skill + write the /task-protocol command
+```
+
+Then run `/task-protocol` in any OpenCode session and answer repo, timebox and
+acceptance criteria. The skill inside is the same `delegated-task-discipline`
+Agent Skill, installable into `~/.claude/skills` or `~/.agents/skills` too.
 
 `--gauntlet` adds a review gauntlet on top of either workflow: after the last
 implementer batch, each feature must pass four sequential passes before it may
