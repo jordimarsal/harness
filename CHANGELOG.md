@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.10.1 — 2026-10-28
+
+- **fix(security-audit)**: `audit-security.sh` now excludes `./.buildwright`
+  from the bandit scan. Runtime worktrees created by
+  [buildwright](https://github.com/jordimarsal/buildwright) live under
+  `.buildwright/worktrees/` and each carries its own `.venv`, so bandit was
+  flagging vendored dependencies (pytest et al.) as if they were this
+  project's code — HIGH-severity findings that made the audit gate fail for
+  the wrong reason.
+
 ## v0.10.0 — 2026-10-27
 
 - **feat(kit)**: new top-level `agent-task-kit/` — a portable kit for

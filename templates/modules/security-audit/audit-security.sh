@@ -110,7 +110,7 @@ case "$STACK" in
   python)
     if command -v bandit >/dev/null 2>&1; then
       if [ "$JSON" -eq 1 ]; then
-        bandit -r . -x ./.venv,./venv,./node_modules -q -f json > "$REPORT" 2>/dev/null || true
+        bandit -r . -x ./.venv,./venv,./node_modules,./.buildwright -q -f json > "$REPORT" 2>/dev/null || true
         FINDINGS_JSON="$(extract_bandit_json "$REPORT")"
         [ -n "$FINDINGS_JSON" ] || FINDINGS_JSON="[]"
         if grep -q '"issue_severity": "HIGH"' "$REPORT"; then
@@ -118,7 +118,9 @@ case "$STACK" in
         fi
       else
         echo "## SAST: bandit"
-        bandit -r . -x ./.venv,./venv,./node_modules -q > "$REPORT" 2>/dev/null || true
+        # ./.buildwright: worktrees of the buildwright runtime (each carries
+        # its own .venv) — vendored deps are not this project's attack surface
+        bandit -r . -x ./.venv,./venv,./node_modules,./.buildwright -q > "$REPORT" 2>/dev/null || true
         grep -E "Issue:|Severity:|Location:" "$REPORT" || echo "No issues reported"
         if grep -q "Severity: High" "$REPORT"; then
           echo "HIGH severity finding(s) from bandit — see above"
