@@ -14,8 +14,9 @@ as unresolved (they do not create gaps).
 Usage:
   check-traceability.py --all [--json] [root]
   check-traceability.py --feature NAME [--json] [root]
+  check-traceability.py --help
 
-Exit codes: 0 covered, 1 gaps, 2 usage error.
+Exit codes: 0 covered (or --help), 1 gaps, 2 usage error.
 """
 
 from __future__ import annotations
@@ -216,8 +217,15 @@ def _take_value(flag: str, remaining: list[str]) -> str | None:
     return value
 
 
+def _usage() -> str:
+    return "usage: check-traceability.py --all | --feature NAME [--json] [--help] [root]"
+
+
 def parse_args(argv: list[str]) -> "tuple[bool, bool, str | None, Path] | int":
     """Parse CLI flags; return (as_json, all_features, feature, root) or exit code 2."""
+    if "--help" in argv or "-h" in argv:
+        print(_usage())
+        return 0
     try:
         as_json = "--json" in argv
         all_features = "--all" in argv
@@ -226,13 +234,11 @@ def parse_args(argv: list[str]) -> "tuple[bool, bool, str | None, Path] | int":
         root_arg = _take_value("--root", remaining)
         unknown = [a for a in remaining if a.startswith("-") and a not in KNOWN_FLAGS]
         if unknown:
-            raise UsageError(f"unknown argument: {unknown[0]}")
+            raise UsageError(f"unknown argument: {unknown[0]}\n{_usage()}")
         positional = [a for a in remaining if not a.startswith("-")]
         root = Path(root_arg or (positional[-1] if positional else Path.cwd()))
         if not all_features and feature is None:
-            raise UsageError(
-                "usage: check-traceability.py --all | --feature NAME [--json] [root]"
-            )
+            raise UsageError(_usage())
     except UsageError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

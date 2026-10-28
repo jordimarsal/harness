@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.10.2 — 2026-10-28
+
+- **feat(tools)**: `check-traceability.py` now accepts `--help` / `-h` — it
+  prints the usage line and exits 0 (it used to reject them as unknown
+  arguments and exit 2). Usage errors now also print the usage line as a hint,
+  so the two invocation forms are self-documenting from the shell.
+
 ## v0.10.1 — 2026-10-28
 
 - **fix(security-audit)**: `audit-security.sh` now excludes `./.buildwright`
