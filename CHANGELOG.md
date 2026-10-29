@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.10.3 — 2026-10-29
+
+- **fix(install)**: `install.sh` now accepts and forwards `--architecture=<name>`
+  to the project's `init.sh` — a fresh install can pick the architecture in the
+  same command (`--architecture=hexagonal` no longer errors with "unknown
+  argument"; it was init.sh-only before). Usage line updated.
+
 ## v0.10.2 — 2026-10-28
 
 - **feat(tools)**: `check-traceability.py` now accepts `--help` / `-h` — it

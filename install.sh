@@ -22,7 +22,7 @@
 set -euo pipefail
 
 REPO_URL="${HARNESS_REPO_URL:-https://github.com/jordimarsal/harness.git}"
-REF="${HARNESS_REF:-v0.10.2}"
+REF="${HARNESS_REF:-v0.10.3}"
 REF_GIVEN=0
 UPDATE=0
 DEST="."
@@ -44,9 +44,9 @@ while [ $# -gt 0 ]; do
     --workflow=*)    PASSTHRU+=("$1") ;;
     --no-uv)         PASSTHRU+=(--no-uv) ;;
     --backup|--backup=*) PASSTHRU+=("$1") ;;
-    --modules=*|--audit-level=*) PASSTHRU+=("$1") ;;
+    --modules=*|--audit-level=*|--architecture=*) PASSTHRU+=("$1") ;;
     -h|--help)
-      echo "Usage: install.sh [--tool=claude|opencode] [--dest DIR] [--ref REF|latest] [--force] [--update] [--modules=...] [--audit-level=...] [--backup[=DIR]] [--hybrid|--workflow=full|hybrid] [--gauntlet] [--no-uv]"
+      echo "Usage: install.sh [--tool=claude|opencode] [--dest DIR] [--ref REF|latest] [--force] [--update] [--modules=...] [--audit-level=...] [--architecture=<name>] [--backup[=DIR]] [--hybrid|--workflow=full|hybrid] [--gauntlet] [--no-uv]"
       exit 0 ;;
     *) echo "install.sh: unknown argument: $1" >&2; exit 1 ;;
   esac
