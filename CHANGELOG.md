@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.10.4 — 2026-11-06
+
+- **fix(scan)**: `scan.py` no longer skips every file when the project root
+  sits under a directory whose name is in `EXCLUDED_DIRS`
+  ([#4](https://github.com/jordimarsal/harness/issues/4)). The exclusion
+  filter tested `set(p.parts)` — the *absolute* path returned by `rglob` —
+  which includes the root's own name and every ancestor above it, so a
+  checkout at `…/build/app`, `…/env/app` or `…/harness` was silently
+  reported as an empty project: `--summary` fell through to the generic
+  fallback, `--duplicates` said `none`, `--style` said `no Python files
+  found`, and `--json --summary` emitted `{"stack": "generic",
+  "total_files": 0}` with the protocol-v1 shape intact — all with exit 0.
+  Both filters (`Scanner.scan` and `generic_summary`) now test
+  `p.relative_to(root).parts`, so only directories *inside* the project
+  count. Inner exclusions are unchanged: `<root>/harness/`,
+  `<root>/build/`, `<root>/node_modules/` are still skipped. Regression test
+  installs into `$TMP_ROOT/build/…` — the CI layout never contained an
+  excluded path component, which is why this never fired.
+
 ## v0.10.3 — 2026-10-29
 
 - **fix(install)**: `install.sh` now accepts and forwards `--architecture=<name>`
