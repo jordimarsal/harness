@@ -1142,6 +1142,88 @@ PYEOF
   fi
 }
 
+test_scan_excluded_ancestor() {
+  local t="scan.py counts files when an ancestor of the root is in EXCLUDED_DIRS"
+  run_test "$t"
+  # Issue #4: the fixture project sits under a dir literally named "build".
+  # The pre-fix filter tested set(p.parts) — the absolute path — so every
+  # file was excluded and all four commands silently reported an empty project.
+  local d; d=$(new_project "build/scanner-excl")
+  touch "$d/requirements.txt"
+  (cd "$d" && "$INIT" --tool=opencode --modules=project-scanner >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: install failed"); return
+  }
+  PASS=$((PASS + 1))
+  mkdir -p "$d/core" "$d/build"
+  cat > "$d/core/models.py" <<'EOF'
+"""Domain models."""
+
+
+class Order:
+    """An order aggregate."""
+EOF
+  # An excluded dir *inside* the root must stay excluded (issue #4 keeps the
+  # inner semantics: that is why "harness" is in EXCLUDED_DIRS at all).
+  printf 'def generated():\n    return 1\n' > "$d/build/gen.py"
+  (cd "$d" && python3 harness/tools/scan.py --summary > summary.txt) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: scan.py --summary failed"); return
+  }
+  PASS=$((PASS + 1))
+  # Ancestor no longer excludes the project — the Python stack wins.
+  assert_grep "$t" "core/models.py" "$d/summary.txt"
+  assert_no_grep "$t" "generic fallback" "$d/summary.txt"
+  # The inner build/ dir is still excluded.
+  assert_no_grep "$t" "gen.py" "$d/summary.txt"
+  # The machine interface must not report a confident empty project.
+  if python3 - "$d/summary.txt" <<'PYEOF' 2>/dev/null; then
+import re, sys
+text = open(sys.argv[1]).read()
+m = re.search(r"Total Python files: (\d+)", text)
+assert m, "no Total Python files line"
+assert int(m.group(1)) >= 1, "expected at least one Python file"
+sys.exit(0)
+PYEOF
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: summary.txt reports an empty project")
+    echo "    FAIL: summary.txt did not report any Python file"
+  fi
+  (cd "$d" && python3 harness/tools/scan.py --json --summary > summary.json) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: scan.py --json --summary failed"); return
+  }
+  PASS=$((PASS + 1))
+  if python3 - "$d/summary.json" <<'PYEOF' 2>/dev/null; then
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d["stack"] == "python", f"stack={d['stack']}"
+assert d["total_files"] >= 1, "total_files must be >= 1"
+assert "core/models.py" in d["files"]
+assert not any(f.startswith("harness/") for f in d["files"]), "harness/ must stay excluded"
+assert "build/gen.py" not in d["files"], "inner build/ must stay excluded"
+sys.exit(0)
+PYEOF
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: summary.json wrong stack/files for excluded ancestor")
+    echo "    FAIL: summary.json does not reflect issue #4 fix"
+  fi
+  # generic_summary — a sibling project with no Python files, also under
+  # build/, must count its files instead of reporting an empty project.
+  local g; g=$(new_project "build/scanner-generic")
+  touch "$g/requirements.txt"
+  (cd "$g" && "$INIT" --tool=opencode --modules=project-scanner >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: generic install failed"); return
+  }
+  PASS=$((PASS + 1))
+  printf '# fixture\n' > "$g/notes.md"
+  (cd "$g" && python3 harness/tools/scan.py --summary > summary.txt) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: generic scan.py --summary failed"); return
+  }
+  PASS=$((PASS + 1))
+  assert_no_grep "$t" "empty project" "$g/summary.txt"
+  assert_grep "$t" "\.md: " "$g/summary.txt"
+}
+
 test_feature_list_validator() {
   local t="feature_list validator accepts fresh install and rejects invalid files"
   run_test "$t"
@@ -1879,6 +1961,7 @@ test_modules_install_strict
 test_audit_json_output
 test_bench_json_output
 test_scan_json_output
+test_scan_excluded_ancestor
 test_feature_list_validator
 test_traceability_checker
 test_evals_fixtures

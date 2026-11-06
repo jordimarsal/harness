@@ -55,7 +55,7 @@ class Scanner:
 
     def scan(self) -> None:
         for p in self.root.rglob("*.py"):
-            if set(p.parts) & EXCLUDED_DIRS:
+            if set(p.relative_to(self.root).parts) & EXCLUDED_DIRS:
                 continue
             sf = self._parse(p)
             if sf is not None:
@@ -185,7 +185,7 @@ def cmd_summary(sc: Scanner) -> str:
 def generic_summary(root: Path) -> str:
     counts: dict[str, int] = {}
     for p in root.rglob("*"):
-        if p.is_file() and not (set(p.parts) & EXCLUDED_DIRS):
+        if p.is_file() and not (set(p.relative_to(root).parts) & EXCLUDED_DIRS):
             key = p.suffix or "(no extension)"
             counts[key] = counts.get(key, 0) + 1
     lines = ["## Project Reading Summary (generic fallback - no Python files)"]
