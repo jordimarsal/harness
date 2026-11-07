@@ -1329,6 +1329,48 @@ test_entry_file_hard_rules() {
   assert_grep "$t" "outrank every artifact" "$dc/CLAUDE.md"
 }
 
+test_release_ref_tagged() {
+  local t="install.sh default REF is released: pins agree and the tag exists"
+  run_test "$t"
+  # README §Releasing pins the version in three places — install.sh REF,
+  # package.json, CHANGELOG heading — and then cuts the tag. A bump without
+  # the tag is invisible to CI (every e2e passes HARNESS_REF=main) while the
+  # README's `curl … | bash` installs without --ref: the clone of the pinned
+  # ref fails, and `--update` resolves `latest` to an older release.
+  local ref pkg heading
+  # grep -o rather than a sed on the literal "${HARNESS_REF:-…}": shellcheck
+  # flags a single-quoted $ (SC2016) and CI runs it without a severity floor.
+  ref="$(grep -o 'HARNESS_REF:-[^}]*' "$REPO_DIR/install.sh" | head -n 1 | sed 's/^HARNESS_REF:-//')"
+  pkg="$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$REPO_DIR/package.json" | head -n 1)"
+  heading="$(grep -m 1 '^## v' "$REPO_DIR/CHANGELOG.md" || true)"
+
+  if [ -n "$ref" ] && [ "$ref" = "v$pkg" ]; then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: install.sh REF '$ref' vs package.json 'v$pkg'")
+    echo "    FAIL: install.sh pins '$ref' but package.json says 'v$pkg'"
+  fi
+
+  if [ -n "$ref" ] && [ "${heading%% —*}" = "## $ref" ]; then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: CHANGELOG heading '$heading' vs '$ref'")
+    echo "    FAIL: newest CHANGELOG heading is '$heading', expected '$ref — …'"
+  fi
+
+  # The tag itself. A full clone has it locally (fast path, no network); a
+  # shallow checkout — CI — does not, so ask the remote rather than fail.
+  if [ -n "$ref" ] && git -C "$REPO_DIR" tag -l "$ref" | grep -q .; then
+    PASS=$((PASS + 1))
+  elif [ -n "$ref" ] && git -C "$REPO_DIR" ls-remote --tags --refs origin \
+      "refs/tags/$ref" 2>/dev/null | grep -q .; then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: tag ${ref:-<none>} not found locally or on origin")
+    echo "    FAIL: tag '$ref' is missing — see README §Releasing, step 3"
+  fi
+}
+
 test_feature_list_validator() {
   local t="feature_list validator accepts fresh install and rejects invalid files"
   run_test "$t"
@@ -2069,6 +2111,7 @@ test_scan_json_output
 test_scan_excluded_ancestor
 test_commit_tool
 test_entry_file_hard_rules
+test_release_ref_tagged
 test_feature_list_validator
 test_traceability_checker
 test_evals_fixtures
