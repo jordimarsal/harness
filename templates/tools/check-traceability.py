@@ -9,7 +9,11 @@ harness/progress/impl_*.md, and verifies:
      (file name or file content match).
 
 Per Protocol §5, requirements whose table Status is not "done" are reported
-as unresolved (they do not create gaps).
+as unresolved (they do not create gaps). A row may also declare an exemption
+as data — Status `exempt: <reason>` — for a requirement no test can verify:
+it produces no gap, is excluded from unresolved, and is reported separately
+(see exempted in the JSON contract). A bare `exempt` with no reason is not
+an exemption; it is a gap whose message names the fix.
 
 Usage:
   check-traceability.py --all [--json] [root]
@@ -158,12 +162,44 @@ def test_identifier_exists(root: Path, identifier: str) -> bool:
     return _search_tests_dir(root, ident)
 
 
+def exempt_reason(status: str) -> str | None:
+    """Return the recorded reason when `status` declares an exemption, else None.
+
+    The Status cell is the data channel: `exempt: <why>`. Matching is
+    case-insensitive on the leading word; anything else (including an empty
+    cell, i.e. no row) is not an exemption.
+    """
+    m = re.match(r"^exempt\b\s*:?\s*(.*)$", status.strip(), re.IGNORECASE)
+    if m is None:
+        return None
+    return m.group(1).strip()
+
+
 def check_feature(root: Path, feature: str) -> dict:
     requirements = find_requirements(root, feature)
     tables, statuses = collect_tables(root, feature)
     gaps: list[dict[str, str]] = []
+    exempted: list[dict[str, str]] = []
     covered = 0
     for req in sorted(requirements, key=lambda r: int(r[1:])):
+        reason = exempt_reason(statuses.get(req, ""))
+        if reason is not None:
+            if reason:
+                # An exemption is a row, not an absence: the requirement stays
+                # visible in the reviewed table and the gate reviewer confirms
+                # it. It is reported, not counted as covered.
+                exempted.append({"requirement": req, "reason": reason})
+            else:
+                gaps.append(
+                    {
+                        "requirement": req,
+                        "reason": (
+                            "status is 'exempt' but carries no reason — "
+                            "write 'exempt: <why>' in the Status cell"
+                        ),
+                    }
+                )
+            continue
         tests = tables.get(req)
         if not tests:
             gaps.append(
@@ -183,16 +219,20 @@ def check_feature(root: Path, feature: str) -> dict:
             )
             continue
         covered += 1
-    # protocol §5: unresolved = requirements whose table Status is not "done"
+    # protocol §5: unresolved = requirements whose table Status is not "done";
+    # an exemption is a made decision, not an open one, so it is not unresolved
     unresolved = [
         req
         for req in sorted(requirements, key=lambda r: int(r[1:]))
-        if req in statuses and statuses[req] != "done"
+        if req in statuses
+        and statuses[req] != "done"
+        and exempt_reason(statuses[req]) is None
     ]
     return {
         "name": feature,
         "requirements": len(requirements),
         "covered": covered,
+        "exempted": exempted,
         "gaps": gaps,
         "unresolved": unresolved,
     }
@@ -316,7 +356,10 @@ def _emit(results: "list[dict]", verdict: str, as_json: bool) -> None:
         )
     else:
         for r in results:
-            print(f"## {r['name']}: {r['covered']}/{r['requirements']} requirements covered")
+            exempt_note = f", {len(r['exempted'])} exempt" if r["exempted"] else ""
+            print(f"## {r['name']}: {r['covered']}/{r['requirements']} requirements covered{exempt_note}")
+            for e in r["exempted"]:
+                print(f"  [EXEMPT] {e['requirement']}: {e['reason']}")
             for g in r["gaps"]:
                 print(f"  [GAP] {g['requirement']}: {g['reason']}")
         print(f"VERDICT: {verdict}")

@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.10.7 — 2026-11-07
+
+- **feat(traceability)**: exemptions are recorded data, not omissions. A
+  requirement no test can verify gets its own traceability-table row with
+  `Status: exempt: <reason>` — the checker honours it (no gap, excluded from
+  `unresolved`, reported under a new `exempted` field together with the
+  reason), and the reason is mandatory: a bare `exempt` is a gap whose
+  message names the fix. Exempt requirements are not counted as covered and
+  are listed in the checker's text output for the completion-gate reviewer.
+  `specs.md` §Traceability and `verification.md` Level 4 state the exception
+  with the same force as the rule; protocol §5 documents the field. From the
+  review of `mattabate/life-distributable`.
+
 ## v0.10.6 — 2026-11-07
 
 - **fix(install)**: `--update` no longer silently drops module-injected
