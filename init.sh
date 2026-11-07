@@ -1075,6 +1075,8 @@ cp "$TEMPLATES_DIR/tools/check-traceability.py" ./harness/tools/
 chmod +x ./harness/tools/check-traceability.py
 cp "$TEMPLATES_DIR/tools/commit-msg" ./harness/tools/commit-msg
 chmod +x ./harness/tools/commit-msg
+cp "$TEMPLATES_DIR/tools/commit.sh" ./harness/tools/commit.sh
+chmod +x ./harness/tools/commit.sh
 cp "$TEMPLATES_DIR/CHECKPOINTS.md" ./harness/CHECKPOINTS.md
 [ -f "./harness/progress/current.md" ] || cp "$TEMPLATES_DIR/progress/current.md" ./harness/progress/current.md
 [ -f "./harness/progress/history.md" ] || cp "$TEMPLATES_DIR/progress/history.md" ./harness/progress/history.md
@@ -1291,6 +1293,7 @@ if command -v python3 >/dev/null 2>&1; then
 fi
 check_file "harness/init.sh"
 check_file "harness/tools/commit-msg"
+check_file "harness/tools/commit.sh"
 check_file "harness/progress/current.md"
 check_file "harness/progress/history.md"
 check_file "docs/architecture.md"

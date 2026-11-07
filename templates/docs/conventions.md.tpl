@@ -73,6 +73,9 @@ Every commit in this repository follows
 - `.git/hooks/commit-msg` (source: `harness/tools/commit-msg`) enforces the
   format on every commit; `--no-verify` is reserved for exceptional cases,
   never a workaround.
+- Use `harness/tools/commit.sh -m "<subject>" <path>…` to commit: it stages
+  exactly the paths you name and never `-a`, so sessions sharing this tree
+  cannot pick up each other's work.
 
 ---
 

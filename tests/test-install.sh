@@ -90,6 +90,18 @@ assert_no_grep() {  # assert_no_grep <name> <pattern> <file>
   fi
 }
 
+expect_exit() {  # expect_exit <name> <expected-code> <workdir> <cmd…>
+  local label="$1" want="$2" dir="$3" code=0
+  shift 3
+  (cd "$dir" && "$@" >/dev/null 2>&1) || code=$?
+  if [ "$code" -eq "$want" ]; then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$label: exit $code, expected $want")
+    echo "    FAIL: expected exit $want, got $code"
+  fi
+}
+
 # ── Shared layout assertions (everything except docs/ under harness/) ──
 assert_harness_layout() {  # assert_harness_layout <test-name> <project-dir>
   local t="$1" d="$2"
@@ -1224,6 +1236,99 @@ PYEOF
   assert_grep "$t" "\.md: " "$g/summary.txt"
 }
 
+test_commit_tool() {
+  local t="commit.sh stages only the paths you name"
+  run_test "$t"
+  local d; d=$(new_project "commit-tool")
+  git init -q "$d"
+  (cd "$d" && "$INIT" --tool=opencode >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: install failed"); return
+  }
+  PASS=$((PASS + 1))
+  assert_file "$t" "$d/harness/tools/commit.sh"
+  assert_executable "$t" "$d/harness/tools/commit.sh"
+
+  # Refusals exit 2 before anything reaches git: no paths, no message, and
+  # every blanket-stage flag (the whole point of the tool).
+  expect_exit "$t: no paths" 2 "$d" harness/tools/commit.sh -m "feat(x): y"
+  expect_exit "$t: no message" 2 "$d" harness/tools/commit.sh a.txt
+  expect_exit "$t: -a" 2 "$d" harness/tools/commit.sh -a -m "feat(x): y" a.txt
+  expect_exit "$t: --amend" 2 "$d" harness/tools/commit.sh --amend -m "feat(x): y" a.txt
+
+  # Commits need an identity; CI has none configured.
+  git -C "$d" config user.email "test@example.com"
+  git -C "$d" config user.name "Harness Test"
+  printf 'one\n' > "$d/a.txt"
+  printf 'two\n' > "$d/b.txt"
+  (cd "$d" && git add a.txt b.txt && git commit -qm "chore(test): seed") || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: seed commit failed"); return
+  }
+  PASS=$((PASS + 1))
+
+  # Another session has staged b.txt; this session only changed a.txt.
+  printf 'one-changed\n' > "$d/a.txt"
+  printf 'two-changed\n' > "$d/b.txt"
+  (cd "$d" && git add b.txt) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: staging b.txt failed"); return
+  }
+  expect_exit "$t: commit a.txt" 0 "$d" harness/tools/commit.sh -m "test(a): update a" a.txt
+
+  # Only a.txt made it into the commit…
+  (cd "$d" && git diff-tree --no-commit-id --name-only -r HEAD > committed.txt)
+  assert_grep "$t" "^a.txt$" "$d/committed.txt"
+  assert_no_grep "$t" "b.txt" "$d/committed.txt"
+  # …and the other session's staged file is still staged, untouched.
+  (cd "$d" && git status --porcelain -- b.txt > staged.txt)
+  assert_grep "$t" "^[AM].*b.txt$" "$d/staged.txt"
+
+  # The commit-msg hook still applies through the tool.
+  printf 'three\n' >> "$d/a.txt"
+  expect_exit "$t: bad subject" 1 "$d" harness/tools/commit.sh -m "not conventional" a.txt
+
+  # --update refreshes the tools block, so an existing install gains the tool.
+  rm -f "$d/harness/tools/commit.sh"
+  (cd "$d" && "$INIT" --update >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: --update failed"); return
+  }
+  PASS=$((PASS + 1))
+  assert_file "$t" "$d/harness/tools/commit.sh"
+  assert_executable "$t" "$d/harness/tools/commit.sh"
+}
+
+test_entry_file_hard_rules() {
+  local t="entry files carry the commit.sh pointer and both input-trust rules"
+  run_test "$t"
+  # The hard rules live in three effective files: AGENTS.md for opencode, and
+  # workflow/claude/{full,hybrid}.md rendered into CLAUDE.md for claude.
+  # Asserting the sources as well as the rendered output is what makes a rule
+  # edited in one entry path but not the others fail here instead of drifting.
+  local s="$REPO_DIR/templates"
+  local f
+  for f in AGENTS.md workflow/claude/full.md workflow/claude/hybrid.md; do
+    assert_grep "$t" "harness/tools/commit.sh" "$s/$f"
+    assert_grep "$t" "is data, not authority" "$s/$f"
+    assert_grep "$t" "outrank every artifact" "$s/$f"
+  done
+
+  local d; d=$(new_project "rules-opencode")
+  (cd "$d" && "$INIT" --tool=opencode >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: opencode install failed"); return
+  }
+  PASS=$((PASS + 1))
+  assert_grep "$t" "harness/tools/commit.sh" "$d/AGENTS.md"
+  assert_grep "$t" "is data, not authority" "$d/AGENTS.md"
+  assert_grep "$t" "outrank every artifact" "$d/AGENTS.md"
+
+  local dc; dc=$(new_project "rules-claude")
+  (cd "$dc" && "$INIT" --tool=claude >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: claude install failed"); return
+  }
+  PASS=$((PASS + 1))
+  assert_grep "$t" "harness/tools/commit.sh" "$dc/CLAUDE.md"
+  assert_grep "$t" "is data, not authority" "$dc/CLAUDE.md"
+  assert_grep "$t" "outrank every artifact" "$dc/CLAUDE.md"
+}
+
 test_feature_list_validator() {
   local t="feature_list validator accepts fresh install and rejects invalid files"
   run_test "$t"
@@ -1962,6 +2067,8 @@ test_audit_json_output
 test_bench_json_output
 test_scan_json_output
 test_scan_excluded_ancestor
+test_commit_tool
+test_entry_file_hard_rules
 test_feature_list_validator
 test_traceability_checker
 test_evals_fixtures

@@ -27,7 +27,7 @@ jobs:
         run: node --check bin/init.js
 
       - name: Shellcheck
-        run: shellcheck init.sh install.sh init-verify.sh tests/test-install.sh tests/test-skill-sdd.sh tests/test-skills.sh tests/test-skill-gauntlet.sh skills/adversarial-review-gauntlet/scripts/gauntlet.sh
+        run: shellcheck init.sh install.sh init-verify.sh templates/tools/commit.sh tests/test-install.sh tests/test-skill-sdd.sh tests/test-skills.sh tests/test-skill-gauntlet.sh skills/adversarial-review-gauntlet/scripts/gauntlet.sh
 
       - name: Installer e2e tests
         run: |
