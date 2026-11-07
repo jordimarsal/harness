@@ -126,7 +126,7 @@ as text mode. Human output is the default; `--json` switches.
 
 Same commands as text mode; output is a single JSON object per command:
 
-- `--summary`: `{"tool": "scan", "protocol": 1, "command": "summary", "stack": "python" | "generic", "files": [...], "total_files": N, "test_files": N, "packages": N, "edges": N, "entry_points": [...], "missing_docstrings": N, "high_risk": [...], "duplicates": {"name": [paths]}}`
+- `--summary`: `{"tool": "scan", "protocol": 1, "command": "summary", "stack": "python" | "generic", "files": [...], "total_files": N, "test_files": N, "packages": N, "edges": N, "entry_points": [...], "missing_docstrings": N, "high_risk": [...], "duplicates": {"<name>": [...]}}`
 - `--impact F`: `{"tool": "scan", "protocol": 1, "command": "impact", "file": "...", "dependencies": [...], "dependents": [...], "tests_affected": [...], "impact_level": "HIGH" | "MEDIUM", "change_risk": "HIGH" | "MEDIUM" | "LOW"}`
 - `--duplicates`: `{"tool": "scan", "protocol": 1, "command": "duplicates", "duplicates": {...}}`
 - `--style N`: `{"tool": "scan", "protocol": 1, "command": "style", "sample": [{"path": "...", "classes": [...], "regions": [...], "first_imports": [...]}]}`
