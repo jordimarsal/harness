@@ -152,6 +152,77 @@ if [ "$WORKFLOW" = "hybrid" ] && ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
+# ── feature_list.json `modules` field: shape-safe read/write ──────────
+# The array is project data an agent may pretty-print (any json.dumps with
+# indent), so its shape is not guaranteed single-line. The line-scoped sed
+# this used to match only returns a value for the single-line shape and
+# silently yields nothing otherwise — which on --update left
+# MODULES_SELECTED empty, wiped the module sections from the shared files
+# and still exited 0. python3 (already a guarded dependency of --hybrid,
+# preserve_project_block and entry checks) reads and writes any shape; the
+# sed fallbacks keep the old behaviour when python3 is unavailable.
+
+feature_list_modules() {  # feature_list_modules <feature-list> → stored modules, comma-separated ("" if none or unreadable)
+  local fl="$1"
+  [ -f "$fl" ] || return 0
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$fl" <<'PY'
+import json, sys
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+    print(",".join(d.get("project", {}).get("modules", [])))
+except Exception:
+    pass
+PY
+  else
+    sed -n 's/.*"modules"[[:space:]]*:[[:space:]]*\[\([^]]*\)\].*/\1/p' "$fl" | head -n 1 | tr -d '"[:space:]'
+  fi
+}
+
+refresh_modules_field() {  # refresh_modules_field <feature-list> — record MODULES_JSON whatever shape the file has
+  local fl="$1"
+  if ! grep -q '"modules"[[:space:]]*:' "$fl"; then
+    warn "Could not update 'modules' in $fl — set it manually in the project section."
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$fl" "$MODULES_JSON" <<'PY' || warn "Could not update 'modules' in $fl — set it manually in the project section."
+import json, sys
+path, raw = sys.argv[1], sys.argv[2]
+with open(path, encoding="utf-8") as f:
+    d = json.load(f)
+d.setdefault("project", {})["modules"] = json.loads("[" + raw + "]") if raw else []
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(d, f, indent=2)
+    f.write("\n")
+PY
+  else
+    sed "s|\"modules\"[[:space:]]*:[[:space:]]*\[[^]]*\]|\"modules\": [$MODULES_JSON]|" "$fl" > "$fl.tmp" && mv "$fl.tmp" "$fl"
+  fi
+}
+
+warn_dropped_module_sections() {  # warn_dropped_module_sections <file> — call right before overwriting it
+  # The template copy removes every module section the file carries; the
+  # injection that follows puts back only this run's selection. A section
+  # whose module is NOT selected is about to disappear — say so, loudly,
+  # instead of letting --update exit 0 over silent data loss.
+  local f="$1" name known
+  [ -f "$f" ] || return 0
+  known=" ${MODULES_SELECTED[*]:-} "
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    case "$name" in
+      audit-checkpoint)  # written for security-audit / performance-benchmarks
+        case "$known" in *" security-audit "*|*" performance-benchmarks "*) continue ;; esac ;;
+      gauntlet-checkpoint)
+        case "$known" in *" gauntlet "*) continue ;; esac ;;
+      *)
+        case "$known" in *" $name "*) continue ;; esac ;;
+    esac
+    warn "Overwriting $f drops its '$name' section — that module is not in this run's selection; re-run with --modules=<list> to keep it."
+  done < <(grep -o 'harness:module:[a-z0-9_-]*:start' "$f" 2>/dev/null | sed 's/^harness:module://; s/:start$//' | sort -u)
+}
+
 # ── --update: preload stored config from the installed harness ──
 # Reads tool/modules/audit level from the project itself; flags still override.
 # Absence never drops anything (unlike --force, which re-asks from scratch).
@@ -173,7 +244,7 @@ if [ "$UPDATE" -eq 1 ]; then
     fi
   fi
   if [ -z "$MODULES_FLAG" ]; then
-    MODULES_FLAG="$(sed -n 's/.*"modules"[[:space:]]*:[[:space:]]*\[\([^]]*\)\].*/\1/p' harness/feature_list.json | head -n 1 | tr -d '"[:space:]')"
+    MODULES_FLAG="$(feature_list_modules harness/feature_list.json)"
     if [ -n "$MODULES_FLAG" ]; then
       info "Update: re-applying stored modules: $(printf '%s' "$MODULES_FLAG" | tr ',' ' ')"
     fi
@@ -685,8 +756,13 @@ if [ "$FORCE" -eq 1 ]; then
   refresh_tool_files claude
   refresh_tool_files opencode
   # Verbatim-copied docs: back up customized copies before the refresh overwrites them.
+  # The guard runs BEFORE backup_collision on purpose: it moves the file away,
+  # and a section-loss warning issued after that would have nothing to read.
   for _doc in docs/specs.md docs/verification.md; do
-    if [ -f "$_doc" ] && ! cmp -s "$_doc" "$TEMPLATES_DIR/$_doc"; then backup_collision "$_doc"; fi
+    if [ -f "$_doc" ] && ! cmp -s "$_doc" "$TEMPLATES_DIR/$_doc"; then
+      warn_dropped_module_sections "$_doc"
+      backup_collision "$_doc"
+    fi
   done
   # HARNESS.md is regenerated; back it up only when it was not harness-generated.
   # Accepts both the current and the pre-rename (harness-standard) marker so a
@@ -908,14 +984,10 @@ generate_conventions() {  # generate_conventions <stack> > stdout — frame + la
 
 refresh_project_metadata() {  # refresh_project_metadata <feature-list>
   # Best-effort: --force records the current run's module/audit selection.
-  # The target lines have the exact shape the installer itself writes, so a
-  # line-scoped sed is safe; any other shape only warns.
+  # `modules` goes through refresh_modules_field (any JSON shape); the scalar
+  # fields are always single-line, so a line-scoped sed is safe for them.
   local fl="$1"
-  if grep -q '"modules"[[:space:]]*:' "$fl"; then
-    sed "s|\"modules\"[[:space:]]*:[[:space:]]*\[[^]]*\]|\"modules\": [$MODULES_JSON]|" "$fl" > "$fl.tmp" && mv "$fl.tmp" "$fl"
-  else
-    warn "Could not update 'modules' in $fl — set it manually in the project section."
-  fi
+  refresh_modules_field "$fl"
   if grep -q '"audit_level"[[:space:]]*:' "$fl"; then
     sed "s|\"audit_level\"[[:space:]]*:[[:space:]]*\"[^\"]*\"|\"audit_level\": \"$AUDIT_LEVEL\"|" "$fl" > "$fl.tmp" && mv "$fl.tmp" "$fl"
   else
@@ -1007,6 +1079,8 @@ PY
 info "Installing harness templates..."
 
 # docs/ stays at the project root
+# (docs/specs.md and docs/verification.md were backed up above — backup_collision
+# moves them — and any module section they carried was already announced there.)
 mkdir -p docs
 cp "$TEMPLATES_DIR/docs/specs.md" ./docs/specs.md
 cp "$TEMPLATES_DIR/docs/verification.md" ./docs/verification.md
@@ -1077,6 +1151,7 @@ cp "$TEMPLATES_DIR/tools/commit-msg" ./harness/tools/commit-msg
 chmod +x ./harness/tools/commit-msg
 cp "$TEMPLATES_DIR/tools/commit.sh" ./harness/tools/commit.sh
 chmod +x ./harness/tools/commit.sh
+warn_dropped_module_sections "./harness/CHECKPOINTS.md"
 cp "$TEMPLATES_DIR/CHECKPOINTS.md" ./harness/CHECKPOINTS.md
 [ -f "./harness/progress/current.md" ] || cp "$TEMPLATES_DIR/progress/current.md" ./harness/progress/current.md
 [ -f "./harness/progress/history.md" ] || cp "$TEMPLATES_DIR/progress/history.md" ./harness/progress/history.md

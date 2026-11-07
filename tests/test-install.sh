@@ -1815,6 +1815,80 @@ test_remote_update() {
   assert_file "$t" "$d/HARNESS.md"
 }
 
+test_update_reinjects_modules() {
+  local t="--update re-injects module sections even when the stored array is multi-line"
+  run_test "$t"
+  local d; d=$(new_project "update-reinject")
+  (cd "$d" && "$INIT" --tool=opencode --modules=security-audit,gauntlet >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: initial install failed"); return
+  }
+  PASS=$((PASS + 1))
+  assert_grep "$t" "harness:module:security-audit:start" "$d/docs/verification.md"
+  assert_grep "$t" "harness:module:audit-checkpoint:start" "$d/harness/CHECKPOINTS.md"
+  # The trigger: reformat the stored array the way a pretty-printer does
+  # (json.dumps indent=2). The line-scoped sed this update used to read with
+  # matched nothing on that shape, MODULES_SELECTED came out empty, the
+  # unconditional template copies wiped the sections and the run still exited 0.
+  python3 - "$d" <<'PY' || {
+import json, sys, pathlib
+p = pathlib.Path(sys.argv[1]) / "harness" / "feature_list.json"
+d = json.loads(p.read_text(encoding="utf-8"))
+p.write_text(json.dumps(d, indent=2) + "\n", encoding="utf-8")
+PY
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: could not reformat feature_list.json"); return
+  }
+  PASS=$((PASS + 1))
+  cp "$d/docs/verification.md" "$d/verification.before-update.md"
+  if (cd "$d" && "$INIT" --update > "$d/update.log" 2>&1); then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: --update exited non-zero")
+    printf '%s\n' "$(tail -5 "$d/update.log")"
+    return
+  fi
+  assert_grep "$t" "re-applying stored modules: security-audit gauntlet" "$d/update.log"
+  if cmp -s "$d/docs/verification.md" "$d/verification.before-update.md"; then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: docs/verification.md changed across --update")
+    echo "    FAIL: module section content was lost or altered"
+  fi
+  assert_grep "$t" "harness:module:security-audit:start" "$d/docs/verification.md"
+  assert_grep "$t" "harness:module:audit-checkpoint:start" "$d/harness/CHECKPOINTS.md"
+}
+
+test_update_warns_on_undeclared_module_block() {
+  local t="--update warns before a copy drops a module section nothing will re-inject"
+  run_test "$t"
+  local d; d=$(new_project "update-undeclared")
+  (cd "$d" && "$INIT" --tool=opencode --modules=security-audit >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: initial install failed"); return
+  }
+  PASS=$((PASS + 1))
+  # Hand-declare the module away: its section in docs/verification.md is now
+  # undeclared data the update will not re-inject — legitimate, but it must be
+  # announced, not disappear silently.
+  python3 - "$d" <<'PY' || {
+import json, sys, pathlib
+p = pathlib.Path(sys.argv[1]) / "harness" / "feature_list.json"
+d = json.loads(p.read_text(encoding="utf-8"))
+d["project"]["modules"] = []
+p.write_text(json.dumps(d, indent=2) + "\n", encoding="utf-8")
+PY
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: could not clear modules"); return
+  }
+  PASS=$((PASS + 1))
+  if (cd "$d" && "$INIT" --update > "$d/update.log" 2>&1); then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: --update exited non-zero")
+    printf '%s\n' "$(tail -5 "$d/update.log")"
+    return
+  fi
+  assert_grep "$t" "drops its 'security-audit' section" "$d/update.log"
+  assert_grep "$t" "docs/verification.md" "$d/update.log"
+}
+
 test_architecture_selection() {
   local t="--architecture selects templates, records the choice, rejects unknown names"
   run_test "$t"
@@ -2120,6 +2194,8 @@ test_wekan_tickets_tool_dst
 test_remote_install
 test_update_requires_harness
 test_update_flow
+test_update_reinjects_modules
+test_update_warns_on_undeclared_module_block
 test_remote_update
 test_architecture_selection
 test_update_modules_and_docs

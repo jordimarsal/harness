@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.10.6 — 2026-11-07
+
+- **fix(install)**: `--update` no longer silently drops module-injected
+  content. The stored `modules` array was read with a line-scoped sed that
+  only matches the single-line shape — a pretty-printed
+  `harness/feature_list.json` (any `json.dumps(..., indent=2)`) yielded
+  nothing, `MODULES_SELECTED` came out empty, the unconditional template
+  copies wiped the module sections from `docs/verification.md` and
+  `harness/CHECKPOINTS.md`, re-injection was skipped, and the run still
+  exited 0. `feature_list_modules` / `refresh_modules_field` now read and
+  write the array through the already-guarded `python3` (the sed fallback
+  preserves the old behaviour when python3 is unavailable), and before a
+  template copy can remove a section nothing will re-inject, a warning now
+  names the module and the file. Found while updating a consumer project;
+  both files were restored byte-identically by re-running
+  `install.sh --update --modules=<list>`.
+
 ## v0.10.5 — 2026-11-07
 
 - **feat(tools)**: `harness/tools/commit.sh` commits **only the paths you name**
