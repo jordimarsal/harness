@@ -1329,6 +1329,63 @@ test_entry_file_hard_rules() {
   assert_grep "$t" "outrank every artifact" "$dc/CLAUDE.md"
 }
 
+# Entry files load whole at the start of every session in a consumer project
+# and are billed as context on every dispatch, so their size is a recurring
+# cost. The budgets are round ceilings growth runs into, not ratchets: raising
+# one must be a deliberate line in the same diff, with a one-line
+# justification — never "fix" a red build here by deleting the assertion.
+ENTRY_BYTE_BUDGET=12000    # installed entry file: AGENTS.md / CLAUDE.md (life-distributable's preamble number)
+AGENT_SRC_BUDGET=11000     # templates/AGENTS.md
+WORKFLOW_BUDGET=4500       # templates/workflow/<tool>/<mode>.md
+STACK_TPL_BUDGET=7000      # templates/stacks/<stack>/CLAUDE.md.tpl
+
+assert_size_budget() {  # assert_size_budget <label> <file> <budget>
+  local label="$1" file="$2" budget="$3" size
+  size="$(wc -c < "$file" 2>/dev/null)" || size=""
+  if [ -z "$size" ]; then
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$label: cannot read $file")
+    echo "    FAIL: missing or unreadable file $file"
+    return
+  fi
+  if [ "$size" -le "$budget" ]; then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$label: $file is ${size} B (budget ${budget} B)")
+    printf '    FAIL: %s is %s B (budget %s B, +%s)\n' "$file" "$size" "$budget" "$((size - budget))"
+    echo "      Trim it (move detail into docs/ and link from the map), or raise this budget in the same commit with a one-line justification."
+  fi
+}
+
+test_entry_file_byte_budget() {
+  local t="entry files stay under their byte budgets"
+  run_test "$t"
+  # Component budgets cover all 11 source files regardless of which stack gets
+  # rendered, and name the runaway file; the installed worst cases are the
+  # binding constraint. Composition can exceed two component budgets at once,
+  # so the rendered pair is asserted, not derived.
+  local f
+  assert_size_budget "$t" "$REPO_DIR/templates/AGENTS.md" "$AGENT_SRC_BUDGET"
+  for f in "$REPO_DIR"/templates/workflow/*/*.md; do
+    assert_size_budget "$t" "$f" "$WORKFLOW_BUDGET"
+  done
+  for f in "$REPO_DIR"/templates/stacks/*/CLAUDE.md.tpl; do
+    assert_size_budget "$t" "$f" "$STACK_TPL_BUDGET"
+  done
+  local d; d=$(new_project "budget-opencode")
+  (cd "$d" && "$INIT" --tool=opencode >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: opencode install failed"); return
+  }
+  PASS=$((PASS + 1))
+  assert_size_budget "$t" "$d/AGENTS.md" "$ENTRY_BYTE_BUDGET"
+  d=$(new_project "budget-claude")
+  touch "$d/requirements.txt"  # heaviest stack template (python)
+  (cd "$d" && "$INIT" --tool=claude --workflow=hybrid >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: claude install failed"); return
+  }
+  PASS=$((PASS + 1))
+  assert_size_budget "$t" "$d/CLAUDE.md" "$ENTRY_BYTE_BUDGET"
+}
+
 test_release_ref_tagged() {
   local t="install.sh default REF is released: pins agree and the tag exists"
   run_test "$t"
@@ -2185,6 +2242,7 @@ test_scan_json_output
 test_scan_excluded_ancestor
 test_commit_tool
 test_entry_file_hard_rules
+test_entry_file_byte_budget
 test_release_ref_tagged
 test_feature_list_validator
 test_traceability_checker
