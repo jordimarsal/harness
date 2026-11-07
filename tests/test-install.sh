@@ -1154,6 +1154,166 @@ PYEOF
   fi
 }
 
+test_protocol_json_contract() {
+  local t="protocol §5 contracts match the tools' actual --json output"
+  run_test "$t"
+  # docs/protocol.md §5 is the contract consumers read; each tool's code is
+  # the implementation; the per-tool tests hand-copy a few assert lines.
+  # Nothing tied the three together, so a renamed field could ship with a
+  # stale doc and green tests — and gauntlet.sh --json, the most
+  # safety-critical contract (a verdict without evidence is a vacuous PASS),
+  # had no shape test at all. This test extracts every documented shape,
+  # runs the real tools on one fixture project and compares, both directions.
+  local d; d=$(new_project "protocol-contract")
+  touch "$d/requirements.txt"
+  (cd "$d" && "$INIT" --tool=opencode --modules=security-audit,performance-benchmarks,project-scanner,gauntlet >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: install failed"); return
+  }
+  PASS=$((PASS + 1))
+  mkdir -p "$d/core" "$d/harness/specs/feat-a" "$d/tests"
+  cat > "$d/core/models.py" <<'EOF'
+class Order:
+    """An aggregate."""
+EOF
+  cat > "$d/core/service.py" <<'EOF'
+from core.models import Order
+
+
+class OrderService:
+    pass
+EOF
+  cat > "$d/harness/specs/feat-a/requirements.md" <<'EOF'
+- R1: WHEN the cart is empty, the system SHALL show an error.
+- R2: The system SHALL persist the order.
+EOF
+  cat > "$d/harness/progress/impl_session1.md" <<'EOF'
+feature: feat-a
+
+| Requirement | Test(s)         | Implementation file(s) | Status |
+|-------------|-----------------|------------------------|--------|
+| R1          | test_empty_cart | core/service.py        | done   |
+EOF
+  cat > "$d/tests/test_cart.py" <<'EOF'
+def test_empty_cart():
+    assert True
+EOF
+  PASS=$((PASS + 1))
+  # Nine invocations. Non-zero exits are contract behaviour, not failures:
+  # bench REJECTs when there is nothing to compare, gauntlet REJECTs by
+  # design (feat-b has no spec trio), check-traceability FAILs on the R2
+  # gap — every verdict shares its documented shape. Success paths only:
+  # error objects are undocumented (spec §4).
+  (cd "$d" && bash harness/tools/audit-security.sh --json > audit.json 2>/dev/null; true)
+  (cd "$d" && bash harness/tools/bench.sh --json > bench.json 2>/dev/null; true)
+  (cd "$d" && bash harness/tools/gauntlet.sh --json --feature feat-b > gauntlet.json 2>/dev/null; true)
+  (cd "$d" && python3 harness/tools/scan.py --json --summary > scan-summary.json; true)
+  (cd "$d" && python3 harness/tools/scan.py --json --impact core/service.py > scan-impact.json; true)
+  (cd "$d" && python3 harness/tools/scan.py --json --duplicates > scan-duplicates.json; true)
+  (cd "$d" && python3 harness/tools/scan.py --json --style 1 > scan-style.json; true)
+  (cd "$d" && python3 harness/tools/validate-feature-list.py --json harness/feature_list.json > validate.json; true)
+  (cd "$d" && python3 harness/tools/check-traceability.py --json --feature feat-a > trace.json; true)
+  PASS=$((PASS + 1))
+  # The extractor asserts it found every documented contract: a §5
+  # restructure must fail loudly here, not silently compare nothing.
+  if python3 - "$REPO_DIR" "$d" <<'PYEOF' 2>&1; then
+import json, re, sys
+from pathlib import Path
+
+repo, proj = Path(sys.argv[1]), Path(sys.argv[2])
+section = (repo / "docs" / "protocol.md").read_text(encoding="utf-8").split(
+    "## 5. Tool JSON contracts", 1)[1].split("## 6.", 1)[0]
+
+headings = re.findall(r"^### (.+?) --json\s*$", section, re.M)
+contracts = {}
+for m in re.finditer(r"^### (.+?) --json\s*$", section, re.M):
+    tool, body = m.group(1), section[m.end():]
+    nxt = re.search(r"^### ", body, re.M)
+    if nxt:
+        body = body[: nxt.start()]
+    fence = re.search(r"```json\s*\n(.*?)```", body, re.S)
+    if fence:
+        contracts[tool] = fence.group(1)
+    for b in re.finditer(r"^- `(--[a-z]+)(?: [A-Z])?`: `(\{.*\})`\s*$", body, re.M):
+        contracts[tool + "/" + b.group(1)] = b.group(2)
+
+assert len(headings) == 6, f"expected 6 documented tools, found: {headings}"
+assert len(contracts) == 9, f"expected 9 documented contracts, found: {sorted(contracts)}"
+
+
+def normalise(snippet):
+    # The doc snippets are illustrative, not JSON: pick the first quoted
+    # alternative ("PASS" | "REJECT" -> "PASS"), pin bare-literal enums,
+    # turn value placeholders into inert values.
+    s = re.sub(r'"[^"]*"(?:\s*\|\s*"[^"]*")+', lambda m: m.group(0).split("|")[0].strip(), snippet)
+    s = s.replace("true | false", "true")
+    s = re.sub(r'(\w+"\s*:\s*)N\b', r"\g<1>0", s)
+    return s.replace("[...]", "[]").replace("[paths]", "[]").replace("{...}", "{}")
+
+
+WILD = re.compile(r"^<.*>$")  # {"<name>": [...]} marks a dynamic map's example key
+errors = []
+
+
+def compare(doc, actual, where):
+    if isinstance(doc, dict):
+        if doc == {}:  # {...} marker: the contract is just "is an object"
+            if not isinstance(actual, dict):
+                errors.append(f"{where}: documented object, output {type(actual).__name__}")
+            return
+        if not isinstance(actual, dict):
+            errors.append(f"{where}: documented object, output {type(actual).__name__}")
+            return
+        wild = {k for k in doc if WILD.match(k)}
+        fixed = {k for k in doc if not WILD.match(k)}
+        for k in fixed - set(actual):
+            errors.append(f"{where}.{k}: documented, missing in output")
+        for k in set(actual) - fixed - wild:
+            errors.append(f"{where}.{k}: in output, not documented")
+        for k in fixed & set(actual):
+            compare(doc[k], actual[k], f"{where}.{k}")
+        for w in wild:
+            if actual:
+                compare(doc[w], next(iter(actual.values())), f"{where}.{w}")
+    elif isinstance(doc, list):
+        if not isinstance(actual, list):
+            errors.append(f"{where}: documented array, output {type(actual).__name__}")
+        elif doc and actual:  # element shape checkable only when output is non-empty
+            compare(doc[0], actual[0], f"{where}[]")
+    else:
+        if not isinstance(actual, type(doc)) and not (
+            isinstance(doc, (int, float)) and isinstance(actual, (int, float))
+        ):
+            errors.append(f"{where}: documented {type(doc).__name__}, output {type(actual).__name__}")
+
+
+outputs = {
+    "audit-security.sh": "audit.json",
+    "bench.sh": "bench.json",
+    "gauntlet.sh": "gauntlet.json",
+    "scan.py/--summary": "scan-summary.json",
+    "scan.py/--impact": "scan-impact.json",
+    "scan.py/--duplicates": "scan-duplicates.json",
+    "scan.py/--style": "scan-style.json",
+    "validate-feature-list.py": "validate.json",
+    "check-traceability.py": "trace.json",
+}
+for key, raw in contracts.items():
+    doc = json.loads(normalise(raw))
+    actual = json.loads((proj / outputs[key]).read_text(encoding="utf-8"))
+    before = len(errors)
+    compare(doc, actual, "$")
+    print(f"  {'OK  ' if len(errors) == before else 'DRIFT'} {key}")
+    for e in errors[before:]:
+        print(f"       {e}")
+if errors:
+    sys.exit(1)
+PYEOF
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: documented contracts do not match --json output")
+  fi
+}
+
 test_scan_excluded_ancestor() {
   local t="scan.py counts files when an ancestor of the root is in EXCLUDED_DIRS"
   run_test "$t"
@@ -2315,6 +2475,7 @@ test_modules_install_strict
 test_audit_json_output
 test_bench_json_output
 test_scan_json_output
+test_protocol_json_contract
 test_scan_excluded_ancestor
 test_commit_tool
 test_entry_file_hard_rules
