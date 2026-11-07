@@ -2290,6 +2290,26 @@ test_non_tty_no_prompts() {
   assert_grep "$t2" '"audit_level": "standard"' "$d/harness/feature_list.json"
 }
 
+test_backup_gitignore() {
+  local t="install and --update keep a single harness/backup/ gitignore entry"
+  run_test "$t"
+  # Backups are session scratch: git has the originals, and untracked backup
+  # dirs show as perpetual ?? noise in a consumer's git status. The entry is
+  # appended once (the grep -qxF guard) on every install and update.
+  local d; d=$(new_project "backup-ignore")
+  (cd "$d" && "$INIT" --tool=opencode --modules=security-audit >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: initial install failed"); return
+  }
+  PASS=$((PASS + 1))
+  assert_grep "$t" "harness/backup/" "$d/.gitignore"
+  assert_count "$t" "harness/backup/" "$d/.gitignore" 1
+  (cd "$d" && "$INIT" --update >/dev/null 2>&1) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: update failed"); return
+  }
+  PASS=$((PASS + 1))
+  assert_count "$t" "harness/backup/" "$d/.gitignore" 1
+}
+
 test_collision_backup() {
   local t="collision: fresh install over a foreign AGENTS.md aborts without --backup (non-TTY)"
   run_test "$t"
@@ -2492,6 +2512,7 @@ test_update_requires_harness
 test_update_flow
 test_update_reinjects_modules
 test_update_warns_on_undeclared_module_block
+test_backup_gitignore
 test_remote_update
 test_architecture_selection
 test_update_modules_and_docs
