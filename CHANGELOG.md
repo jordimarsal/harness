@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.10.8 — 2026-11-07
+
+- **fix(install)**: `harness/backup/` is now gitignored. The pre-update copies
+  the installer writes there are session scratch — git already holds the
+  originals — and leaving them untracked turned every update into perpetual
+  `??` noise in a consumer's `git status`. Appended once per install/update
+  (same guarded pattern as the Wekan credentials entry).
+
 ## v0.10.7 — 2026-11-07
 
 - **feat(traceability)**: exemptions are recorded data, not omissions. A
