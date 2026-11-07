@@ -223,3 +223,12 @@ traceability table:
 
 A feature may not transition to `done` until every row in this table has status `done`
 and the completion gate reviewer has confirmed the mapping is accurate.
+
+A requirement that no test can verify is not omitted from this table — it is
+exempted **as data**: give it its own row with `Status: exempt: <reason>`
+(`| R7 | — | docs/install.md | exempt: doc-only, checked at review |`). The
+reason is mandatory: `harness/tools/check-traceability.py` reports a bare
+`exempt` as a gap whose message names the fix. Exempt requirements produce no
+gap, are listed separately in the checker's output, are not counted as
+covered, and the completion gate reviewer confirms each exemption like any
+other row.

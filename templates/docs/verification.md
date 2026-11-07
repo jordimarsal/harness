@@ -50,6 +50,12 @@ This mapping is documented in the progress file (see `specs.md` - Traceability s
 A feature cannot be marked as done until every requirement has a passing test that
 proves it works.
 
+The one exception is recorded in the table itself: a requirement that no test can
+verify carries `Status: exempt: <reason>` (see `specs.md` - Traceability). An
+exemption is a reviewer-visible decision, not an omission — the traceability
+checker lists exempt requirements separately, and the completion gate reviewer
+confirms each one.
+
 ---
 
 ## Anti-Patterns
