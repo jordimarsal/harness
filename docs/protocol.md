@@ -145,13 +145,18 @@ Same commands as text mode; output is a single JSON object per command:
   "protocol": 1,
   "verdict": "PASS" | "FAIL",
   "features": [
-    {"name": "feat-a", "requirements": 3, "covered": 3, "gaps": [], "unresolved": []}
+    {"name": "feat-a", "requirements": 3, "covered": 2, "exempted": [{"requirement": "R3", "reason": "doc-only, checked at review"}], "gaps": [], "unresolved": []}
   ]
 }
 ```
 
 - `gaps`: requirements present in `requirements.md` but absent from every impl table,
-  or whose test identifiers cannot be found under `tests/`.
+  or whose test identifiers cannot be found under `tests/`. A bare `exempt`
+  Status with no reason is also a gap, with a message naming the fix.
+- `exempted`: rows declared as data — `Status: exempt: <reason>` in the traceability
+  table — for a requirement no test can verify. They produce no gap, are excluded
+  from `unresolved`, and are not counted as covered; the reason is mandatory and
+  the completion-gate reviewer confirms each exemption.
 - `unresolved`: table rows whose Status is not `done` (informational).
 
 ## 6. Module injection markers

@@ -1648,6 +1648,82 @@ PYEOF
   fi
 }
 
+test_traceability_exemption() {
+  local t="traceability checker honours 'exempt: <reason>' rows as recorded data"
+  run_test "$t"
+  local d; d=$(new_project "trace-exempt")
+  (cd "$d" && "$INIT" --tool=opencode >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: install failed"); return
+  }
+  PASS=$((PASS + 1))
+  mkdir -p "$d/harness/specs/feat-a" "$d/tests"
+  cat > "$d/harness/specs/feat-a/requirements.md" <<'EOF'
+# Requirements — feat-a
+
+- R1: WHEN the user submits an empty cart, the system SHALL show an error.
+- R2: The system SHALL persist the order.
+- R3: The install guide SHALL list the tool requirement.
+EOF
+  cat > "$d/harness/progress/impl_session1.md" <<'EOF'
+# Implementation — feat-a
+feature: feat-a
+
+| Requirement | Test(s)         | Implementation file(s) | Status                              |
+|-------------|-----------------|------------------------|-------------------------------------|
+| R1          | test_empty_cart | core/cart.py           | done                                |
+| R2          | test_persist    | core/orders.py         | done                                |
+| R3          | —               | docs/install.md        | exempt: doc-only, checked at review |
+EOF
+  cat > "$d/tests/test_cart.py" <<'EOF'
+def test_empty_cart():
+    assert True
+
+
+def test_persist():
+    assert True
+EOF
+  # The exemption channel is what makes this exit 0: on the previous behaviour
+  # R3 was a permanent gap (no test can exist for it) and the verdict was FAIL
+  # forever — alarm fatigue, or a fake test identifier.
+  if (cd "$d" && python3 harness/tools/check-traceability.py --feature feat-a > trace.txt 2>&1); then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: exempt row still fails the checker")
+    echo "    FAIL: a reasoned exemption must not fail the run"
+  fi
+  assert_grep "$t" "2/3 requirements covered, 1 exempt" "$d/trace.txt"
+  assert_grep "$t" "\[EXEMPT\] R3: doc-only, checked at review" "$d/trace.txt"
+  assert_no_grep "$t" "\[GAP\]" "$d/trace.txt"
+  (cd "$d" && python3 harness/tools/check-traceability.py --feature feat-a --json > trace.json)
+  PASS=$((PASS + 1))
+  if python3 - "$d/trace.json" <<'PYEOF' 2>/dev/null; then
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d["verdict"] == "PASS"
+feat = d["features"][0]
+assert feat["requirements"] == 3 and feat["covered"] == 2
+assert feat["exempted"] == [{"requirement": "R3", "reason": "doc-only, checked at review"}]
+assert feat["gaps"] == [] and feat["unresolved"] == []
+sys.exit(0)
+PYEOF
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: exempt.json invalid shape")
+    echo "    FAIL: exempted/gaps/unresolved wrong shape"
+  fi
+  # A bare `exempt` is not an exemption: the cheapest way out must still cost
+  # a sentence a reviewer can reject.
+  sed -i 's/exempt: doc-only, checked at review/exempt/' "$d/harness/progress/impl_session1.md"
+  if (cd "$d" && python3 harness/tools/check-traceability.py --feature feat-a > trace2.txt 2>&1); then
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: bare 'exempt' accepted")
+    echo "    FAIL: exemption without a reason must fail"
+  else
+    PASS=$((PASS + 1))
+  fi
+  assert_grep "$t" "R3" "$d/trace2.txt"
+  assert_grep "$t" "write 'exempt: <why>'" "$d/trace2.txt"
+}
+
 test_evals_fixtures() {
   local t="evals fixtures: checker verdicts match EXPECTED outcomes"
   run_test "$t"
@@ -2246,6 +2322,7 @@ test_entry_file_byte_budget
 test_release_ref_tagged
 test_feature_list_validator
 test_traceability_checker
+test_traceability_exemption
 test_evals_fixtures
 test_force_modules_replace_sections
 test_wekan_tickets_tool_dst
