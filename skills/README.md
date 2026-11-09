@@ -14,6 +14,7 @@ installer), everything here must be valid on its own: a `SKILL.md` with
 | `adversarial-review-gauntlet` | `templates/modules/gauntlet/` (protocol + `gauntlet.sh`) | ships its own vendored checker via packaging |
 | `architecture-advisor` | `templates/modules/architecture-catalog/` + `templates/architectures/` | 8-pattern catalog, 3 selectors, justification block |
 | `clarity-style` | `templates/modules/clarity/` | single-file 80% ASD-STE100 reply style |
+| `sonarqube` | `templates/modules/sonarqube/` + homelab SonarQube operations | review-step quality gate tool + server install/operation/agent-routes references |
 | `wekan-tasks` | `templates/modules/wekan-tickets/SKILL.md` | harness-native skill: mirrors SDD states on Wekan |
 
 Install (see the README table of contents at the repo root):

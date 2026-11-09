@@ -1300,6 +1300,17 @@ if [ ! -f .gitignore ] || ! grep -qxF "harness/backup/" .gitignore; then
   printf '\n# harness installer backups (pre-update copies) — machine scratch\nharness/backup/\n' >> .gitignore
 fi
 
+# ── SonarQube token gitignore ───────────────────────────
+# The sonarqube module reads SONAR_TOKEN from harness/sonar.env. A token that
+# reaches git is a leaked credential: ignore it on every install that carries
+# the module, before the file exists.
+if printf '%s\n' "${MODULES_SELECTED[*]:-}" | grep -qE '(^|[[:space:]])sonarqube($|[[:space:]])'; then
+  if [ ! -f .gitignore ] || ! grep -qxF "harness/sonar.env" .gitignore; then
+    printf '\n# SonarQube token (sonarqube module) — never commit\nharness/sonar.env\n' >> .gitignore
+    info "Gitignored harness/sonar.env (SonarQube token)"
+  fi
+fi
+
 # ── Conventional Commits (every install: any tool, any workflow) ──
 # Enforced mechanically via the commit-msg hook; docs/conventions.md and the
 # entry file document the rule for the agents. A pre-existing foreign hook is

@@ -1,0 +1,12 @@
+{
+  "name": "sonarqube",
+  "description": "SonarQube quality gate in the review step — scans the feature and blocks on a failed gate when a server is reachable, degrades to a recorded skip when it is not",
+  "stacks": ["typescript", "node", "android", "java", "python", "rust", "generic"],
+  "injects": [
+    { "src": "sonarqube-protocol.md", "dst": "docs/sonarqube-protocol.md", "mode": "copy" },
+    { "src": "sonar-review.sh", "dst": "harness/tools/sonar-review.sh", "mode": "copy" },
+    { "src": "sonar.env.example", "dst": "harness/sonar.env.example", "mode": "copy-if-missing" },
+    { "src": "sonar-project.properties", "dst": "sonar-project.properties", "mode": "copy-if-missing" }
+  ],
+  "verify": ["harness/tools/sonar-review.sh", "docs/sonarqube-protocol.md"]
+}

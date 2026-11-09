@@ -414,7 +414,7 @@ test_interactive_module_menu() {
   }
   PASS=$((PASS + 1))
   printf '%s\n' "$out" > "$d/init-output.txt"
-  for m in architecture-catalog clarity decision-memory gauntlet iterative-refinement log-reader project-scanner security-audit performance-benchmarks wekan-tickets vertical-slices; do
+  for m in architecture-catalog clarity decision-memory gauntlet iterative-refinement log-reader project-scanner security-audit sonarqube performance-benchmarks wekan-tickets vertical-slices; do
     assert_grep "$t" "$m" "$d/init-output.txt"
   done
   assert_grep "$t" "Audit level" "$d/init-output.txt"
@@ -806,6 +806,62 @@ test_log_reader_module() {
   assert_grep "$t" '"log-reader"' "$d/harness/feature_list.json"
   assert_grep "$t" "Evidence format" "$d/docs/log-reader-protocol.md"
   assert_grep "$t" "Verification (dispatcher's duty" "$d/docs/log-reader-protocol.md"
+}
+
+test_sonarqube_module() {
+  local t="sonarqube installs review tool, protocol doc and gitignores the token file"
+  run_test "$t"
+  local d; d=$(new_project "sonarqube")
+  (cd "$d" && "$INIT" --tool=opencode --modules=sonarqube >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: init.sh exited non-zero"); return
+  }
+  PASS=$((PASS + 1))
+  assert_file "$t" "$d/harness/tools/sonar-review.sh"
+  assert_file "$t" "$d/docs/sonarqube-protocol.md"
+  assert_file "$t" "$d/harness/sonar.env.example"
+  assert_file "$t" "$d/sonar-project.properties"
+  assert_grep "$t" '"sonarqube"' "$d/harness/feature_list.json"
+  assert_grep "$t" "Exit codes and what the reviewer does with them" "$d/docs/sonarqube-protocol.md"
+  assert_grep "$t" "harness/sonar.env" "$d/.gitignore"
+  assert_grep "$t" "never commit" "$d/.gitignore"
+  # Without a token the tool must skip with exit 2 — never block, never fake a pass.
+  local out rc
+  out="$(cd "$d" && bash harness/tools/sonar-review.sh 2>&1)"; rc=$?
+  if [ "$rc" -eq 2 ]; then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: expected exit 2 without token, got $rc")
+    echo "    FAIL: expected exit 2 without token, got $rc — $out"
+  fi
+  local js
+  js="$(cd "$d" && bash harness/tools/sonar-review.sh --json 2>/dev/null)"
+  if printf '%s' "$js" | grep -q '"verdict":"SKIPPED"'; then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: --json verdict not SKIPPED")
+    echo "    FAIL: --json output: $js"
+  fi
+  # json_get contract: gate parsing must survive edits — it degrades to "" on
+  # any quoting slip, which would silently turn every verdict into a skip.
+  local parse_out
+  eval "$(sed -n '/^json_get()/,/^}/p' "$d/harness/tools/sonar-review.sh")"
+  parse_out="$(json_get '{"projectStatus":{"status":"ERROR","conditions":[{"status":"OK","metricKey":"new_coverage"},{"status":"ERROR","metricKey":"new_violations"}]},"errors":[]}' gate-status)"
+  if [ "$parse_out" = "ERROR" ]; then PASS=$((PASS + 1)); else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: json_get gate-status"); echo "    FAIL: json_get gate-status → '$parse_out'"
+  fi
+  parse_out="$(json_get '{"projectStatus":{"status":"ERROR","conditions":[{"status":"OK","metricKey":"new_coverage"},{"status":"ERROR","metricKey":"new_violations"}]}}' gate-failed)"
+  if [ "$parse_out" = '"new_violations"' ]; then PASS=$((PASS + 1)); else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: json_get gate-failed"); echo "    FAIL: json_get gate-failed → '$parse_out'"
+  fi
+  parse_out="$(json_get '{"errors":[{"msg":"Project not found"}]}' api-error)"
+  if [ "$parse_out" = "Project not found" ]; then PASS=$((PASS + 1)); else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: json_get api-error"); echo "    FAIL: json_get api-error → '$parse_out'"
+  fi
+  # --update removes the module files again (strip_module is manifest-driven).
+  (cd "$d" && "$INIT" --tool=opencode --update --remove-modules=sonarqube >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: update --remove-modules exited non-zero"); return
+  }
+  assert_no_file "$t" "$d/harness/tools/sonar-review.sh"
 }
 
 test_vertical_slices_module() {
@@ -2486,6 +2542,7 @@ test_invalid_module_rejected
 test_invalid_audit_level_rejected
 test_module_filtered_by_stack
 test_log_reader_module
+test_sonarqube_module
 test_vertical_slices_module
 test_clarity_module
 test_project_scanner_module

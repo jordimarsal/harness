@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.11.0 — 2026-11-09
+
+- **feat(sonarqube)**: new module — a SonarQube quality gate in the review
+  step. `--modules=sonarqube` installs `harness/tools/sonar-review.sh` +
+  `docs/sonarqube-protocol.md` + a starter `sonar-project.properties` and
+  gitignores `harness/sonar.env`. The reviewer runs the tool before the
+  verdict: it scans (`sonar-scanner` binary or the scanner Docker image),
+  waits for the Compute Engine and the Quality Gate, and reports — gate
+  FAILED rejects the approval, server unreachable is a recorded skip (never
+  a fake pass, never a blocker). Config via env or `harness/sonar.env`
+  (`SONAR_HOST_URL`/`SONAR_TOKEN`, optional `SONAR_ORG`, `SONAR_CONTAINER`,
+  `SONAR_SCANNER_NETWORK`); local servers that publish no host ports are
+  reached by automatic container discovery (bridge IP + same-network
+  scanner), the pattern honed on the homelab SonarQube. Exit-code contract:
+  0 pass · 1 failed (blocks) · 2 unavailable (skip) · 3 analysis error
+  (skip, recorded); `--report-only` downgrades 1 to 0. Verified end-to-end
+  against a live Community Build 26.9: PASS → FAILED (new_violations) →
+  PASS cycle, api mode, `--json` output.
+- **feat(skills)**: new standalone `sonarqube` skill — server installation
+  (docker-compose, token provisioning, scanner, project wiring), API recipes
+  (gate, issues, hotspots, CE task), and the agent-integrations study:
+  scanner+API vs the official MCP server (`sonarsource/sonarqube-mcp`,
+  Server ≥ 2025.1/CB ≥ 25.1) vs SonarQube CLI vs SonarQube for IDE
+  (ex-SonarLint) — the IDE plugin serves the human; agents gate via
+  scanner+API.
+
 ## v0.10.8 — 2026-11-07
 
 - **fix(install)**: `harness/backup/` is now gitignored. The pre-update copies

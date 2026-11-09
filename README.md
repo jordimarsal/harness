@@ -272,6 +272,7 @@ menu:
 - `performance-benchmarks` — benchmark verification rules and a stack-aware bench runner
 - `project-scanner` — deterministic Python project scanner for impact analysis
 - `security-audit` — security audit checklist plus SAST and dependency scan tool
+- `sonarqube` — SonarQube quality gate in the review step: scans the feature and blocks the approval on a failed gate when a server is reachable (env or `harness/sonar.env`), records a skip when it is not
 - `vertical-slices` — cut user-facing features into ordered, demoable vertical slices (walking skeleton first); each slice is a feature with its own gates
 - `wekan-tickets` — mirror every workflow state transition on a Wekan kanban board
 
