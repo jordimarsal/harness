@@ -28,6 +28,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from typing import TypedDict
 from pathlib import Path
 
 REQ_RE = re.compile(r"\bR(\d+)\b")
@@ -169,13 +170,22 @@ def exempt_reason(status: str) -> str | None:
     case-insensitive on the leading word; anything else (including an empty
     cell, i.e. no row) is not an exemption.
     """
-    m = re.match(r"^exempt\b\s*:?\s*(.*)$", status.strip(), re.IGNORECASE)
-    if m is None:
+    rest = status.strip()
+    if re.match(r"^exempt\b", rest, re.IGNORECASE) is None:
         return None
-    return m.group(1).strip()
+    return rest[len("exempt"):].lstrip(": \t").strip()
 
 
-def check_feature(root: Path, feature: str) -> dict:
+class _FeatureCheck(TypedDict):
+    name: str
+    covered: int
+    requirements: int
+    exempted: list[dict[str, str]]
+    gaps: list[dict[str, str]]
+    unresolved: list[str]
+
+
+def check_feature(root: Path, feature: str) -> _FeatureCheck:
     requirements = find_requirements(root, feature)
     tables, statuses = collect_tables(root, feature)
     gaps: list[dict[str, str]] = []
@@ -303,6 +313,8 @@ def _done_features(root: Path) -> set[str]:
 
 def _selected_features(root: Path, all_features: bool, feature: str | None) -> list[str]:
     if not all_features:
+        if feature is None:
+            return []
         return [feature]
     specs_dir = root / "harness" / "specs"
     names = sorted(p.name for p in specs_dir.iterdir() if p.is_dir()) if specs_dir.is_dir() else []
@@ -335,6 +347,12 @@ def _feature_names(
             print("error: no `done` features with a spec directory found", file=sys.stderr)
             return None
         return names
+    if feature is None:
+        print(
+            "error: --feature NAME is required (or use --all from the repo root)",
+            file=sys.stderr,
+        )
+        return None
     specs_dir = root / "harness" / "specs"
     if not (specs_dir / feature / "requirements.md").is_file():
         print(f"error: unknown feature (no requirements.md): {feature}", file=sys.stderr)
@@ -342,7 +360,7 @@ def _feature_names(
     return [feature]
 
 
-def _emit(results: "list[dict]", verdict: str, as_json: bool) -> None:
+def _emit(results: "list[_FeatureCheck]", verdict: str, as_json: bool) -> None:
     if as_json:
         print(
             json.dumps(

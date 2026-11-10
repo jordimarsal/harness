@@ -46,7 +46,7 @@ def parse_args(argv: list[str]) -> "tuple[bool, str] | int":
     return as_json, path
 
 
-def _validate_project_section(data: dict, err: "Callable[[str, str, str], None]") -> None:
+def _validate_project_section(data: "dict[str, object]", err: "Callable[[str, str, str], None]") -> None:
     project = data.get("project")
     if not isinstance(project, dict):
         err("project", "missing", "project section is required")
@@ -103,7 +103,7 @@ def _require_done_approval(fname: object, fid: object, at: str, err: "Callable[[
         )
 
 
-def _validate_features(data: dict, err: "Callable[[str, str, str], None]") -> None:
+def _validate_features(data: "dict[str, object]", err: "Callable[[str, str, str], None]") -> None:
     features = data.get("features")
     if not isinstance(features, list):
         err("features", "missing", "features array is required")
