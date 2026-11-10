@@ -221,7 +221,10 @@ run_scan() {  # run_scan <scanner args...> — scanner log lands in $SCAN_LOG
       -e SONAR_HOST_URL="$SONAR_HOST_URL" -e SONAR_TOKEN -e SONAR_USER_HOME=/opt/sonar-scanner/.sonar \
       -e HOME=/tmp "${SONAR_SCANNER_IMAGE:-sonarsource/sonar-scanner-cli}" "$@"
   else
-    (cd "$PROJECT_DIR" && "$SCANNER" "$@")
+    # native scanner: export credentials so the child process inherits them
+    # (the Docker path injects them via -e; without export the scanner
+    # defaults to SonarCloud and demands sonar.organization)
+    (cd "$PROJECT_DIR" && export SONAR_HOST_URL SONAR_TOKEN SONAR_ORG && "$SCANNER" "$@")
   fi
 }
 
