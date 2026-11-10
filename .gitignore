@@ -6,3 +6,6 @@ skills-lock.json
 evidence/
 
 __pycache__/
+
+# sonar-scanner artifacts
+.scannerwork/
