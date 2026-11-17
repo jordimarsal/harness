@@ -16,6 +16,7 @@ installer), everything here must be valid on its own: a `SKILL.md` with
 | `clarity-style` | `templates/modules/clarity/` | single-file 80% ASD-STE100 reply style |
 | `sonarqube` | `templates/modules/sonarqube/` + homelab SonarQube operations | review-step quality gate tool + server install/operation/agent-routes references |
 | `wekan-tasks` | `templates/modules/wekan-tickets/SKILL.md` | harness-native skill: mirrors SDD states on Wekan |
+| `joplin` | local Joplin operation via the Data API (localhost:41184) | talks to the running desktop app: notebooks, notes, resources, search — no `joplin` CLI binary or external MCP required |
 
 Install (see the README table of contents at the repo root):
 
