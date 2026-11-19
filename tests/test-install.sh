@@ -551,6 +551,30 @@ test_python_uv_default() {
   assert_no_grep "$t" "uv run" "$d2/.claude/settings.json"
 }
 
+test_go_stack() {
+  local t="go stack installs test/build commands and conventions chunk"
+  run_test "$t"
+  local d; d=$(new_project "go-stack")
+  touch "$d/go.mod"
+  # PATH without go: deterministic warn path — commands are written as-is, the
+  # missing toolchain is surfaced (no fallback runner exists for Go).
+  (cd "$d" && PATH="$(path_without go)" "$INIT" --tool=opencode > "$d/init-output.txt" 2>&1) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: init.sh exited non-zero"); return
+  }
+  PASS=$((PASS + 1))
+  assert_grep "$t" "Detected stack: go" "$d/init-output.txt"
+  assert_grep "$t" "go test ./... -race -count=1" "$d/opencode.json"
+  assert_grep "$t" "go build \./\.\.\." "$d/opencode.json"
+  assert_grep "$t" "go not found on PATH" "$d/init-output.txt"
+  # Conventions chunk composed through generate_conventions (R3/R4).
+  assert_grep "$t" "## Code quality" "$d/docs/conventions.md"
+  assert_grep "$t" "gofmt" "$d/docs/conventions.md"
+  assert_grep "$t" "Hexagonal exception" "$d/docs/conventions.md"
+  assert_grep "$t" "context.Context" "$d/docs/conventions.md"
+  assert_grep "$t" "table-driven" "$d/docs/conventions.md"
+  assert_grep "$t" "log/slog" "$d/docs/conventions.md"
+}
+
 test_conventional_commits() {
   local t="conventional commits enforced on every install (any option, even --hybrid)"
   run_test "$t"
@@ -972,6 +996,42 @@ test_security_audit_module() {
     echo "    FAIL: audit-security.sh should degrade to checklist-only with exit 0"
   fi
   assert_grep "$t" "Checklist" "$d/audit-report.txt"
+}
+
+test_security_audit_go_stack() {
+  local t="security-audit on go stack: detection, degradation and JSON contract"
+  run_test "$t"
+  local d; d=$(new_project "sec-audit-go")
+  touch "$d/go.mod"
+  (cd "$d" && "$INIT" --tool=claude --modules=security-audit >/dev/null) || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: init.sh exited non-zero"); return
+  }
+  PASS=$((PASS + 1))
+  # PATH stripped of the Go toolchain: deterministic degradation path (same
+  # shape as rust without cargo-audit — mode stays automated, skips recorded).
+  local p; p="$(path_without go)"
+  p="$(PATH="$p" path_without govulncheck)"
+  if (cd "$d" && PATH="$p" bash harness/tools/audit-security.sh > audit-go.txt 2>&1); then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: audit-security.sh non-zero without Go toolchain")
+    echo "    FAIL: go-stack audit should degrade with exit 0"
+  fi
+  assert_grep "$t" "stack: go" "$d/audit-go.txt"
+  assert_grep "$t" "go vet — SKIPPED" "$d/audit-go.txt"
+  if ! PATH="$p" command -v govulncheck >/dev/null 2>&1; then
+    assert_grep "$t" "govulncheck — SKIPPED" "$d/audit-go.txt"
+  fi
+  # JSON mode: protocol v1 with the go stack, automated mode, recorded skips.
+  if (cd "$d" && PATH="$p" bash harness/tools/audit-security.sh --json > audit-go.json 2>/dev/null); then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: --json exited non-zero"); return
+  fi
+  assert_grep "$t" '"stack":"go"' "$d/audit-go.json"
+  assert_grep "$t" '"protocol":1' "$d/audit-go.json"
+  assert_grep "$t" '"mode":"automated"' "$d/audit-go.json"
+  assert_grep "$t" "go vet: go not on PATH" "$d/audit-go.json"
 }
 
 test_gauntlet_module() {
@@ -2534,6 +2594,7 @@ test_force_switch_tool
 test_verify_script_runs
 test_python_stack
 test_python_uv_default
+test_go_stack
 test_conventional_commits
 test_module_manifests_valid
 test_modules_install
@@ -2547,6 +2608,7 @@ test_vertical_slices_module
 test_clarity_module
 test_project_scanner_module
 test_security_audit_module
+test_security_audit_go_stack
 test_gauntlet_module
 test_modules_install_strict
 test_audit_json_output

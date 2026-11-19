@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.12.0 — 2026-11-19
+
+- **feat(stacks)**: Go joins the supported stacks (8th). `go.mod` at the root
+  detects the stack (priority python < go < rust); init wires
+  `go test ./... -race -count=1` / `go build ./...` (race is part of done;
+  `-count=1` defeats the test cache so a green gate is a fresh verification)
+  and warns — never falls back — when the toolchain is missing; the gate
+  (`init-verify.sh`) runs the same command, fail-closed without it. The
+  conventions chunk (`templates/conventions/go.md`, distilled from Effective
+  Go, Go Code Review Comments, the Google Go Style Guide and *100 Go
+  Mistakes*) encodes the idioms a Java/Python-trained dispatch would get
+  wrong: visibility by case, interfaces at the consumer with the hexagonal
+  exception (ports live in the domain package), errors as values (`%w` +
+  `errors.Is/As`, no log-and-return, no panic outside `main`),
+  `context.Context` first param, table-driven tests, goroutine ownership,
+  `cmd/`+`internal/` layout, `log/slog` logging. `security-audit` learns a go
+  branch mirroring the rust shape: `govulncheck` executes with the
+  sonarqube-style exit contract (0 clean · 3 findings → HIGH · anything else
+  recorded skip — tool failure is never a finding), `go vet` executes and
+  surfaces findings without inflating HIGH, `staticcheck` stays a hint; the
+  audit's own stack detection knows `go.mod`. The 11 stack-enumerating module
+  manifests accept `"go"` (project-scanner stays python-only). Claude hybrid
+  installs get `templates/stacks/go/CLAUDE.md.tpl`. New tests:
+  `test_go_stack` and `test_security_audit_go_stack` (string-level — the
+  suite stays green without the toolchain) plus `tests/e2e-go.sh`, a real
+  module with a table-driven test proving install → gate → `go test -race`
+  green; CI runs it on a setup-go runner (`go-stack` job). Spec:
+  `docs/superpowers/specs/2026-11-19-go-stack-design.md` (Approved).
+
 ## v0.11.0 — 2026-11-09
 
 - **feat(sonarqube)**: new module — a SonarQube quality gate in the review

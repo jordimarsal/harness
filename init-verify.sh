@@ -108,6 +108,8 @@ elif [ -f "package.json" ]; then
   TEST_CMD="npm test 2>&1"
 elif [ -f "Cargo.toml" ]; then
   TEST_CMD="cargo test 2>&1"
+elif [ -f "go.mod" ]; then
+  TEST_CMD="go test ./... -race -count=1 2>&1"
 elif [ -f "build.gradle" ]; then
   TEST_CMD="./gradlew test 2>&1"
 elif [ -f "pom.xml" ]; then

@@ -26,6 +26,7 @@ if [ -z "$STACK" ]; then
   elif [ -f "build.gradle" ] && { [ -f "AndroidManifest.xml" ] || [ -f "app/src/main/AndroidManifest.xml" ]; }; then STACK="android"
   elif [ -f "build.gradle" ] || [ -f "pom.xml" ]; then STACK="java"
   elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then STACK="python"
+  elif [ -f "go.mod" ]; then STACK="go"
   elif [ -f "Cargo.toml" ]; then STACK="rust"
   else STACK="generic"
   fi
@@ -197,6 +198,47 @@ case "$STACK" in
     else
       [ "$JSON" -eq 1 ] && SKIPPED+=("clippy: not installed")
       [ "$JSON" -eq 1 ] || echo "## SAST: clippy — SKIPPED"
+    fi
+    ;;
+  go)
+    # govulncheck exit codes: 0 clean · 3 vulnerabilities found · anything else
+    # is tool failure (recorded skip, never a finding — sonarqube-style contract).
+    if command -v govulncheck >/dev/null 2>&1 && command -v go >/dev/null 2>&1; then
+      [ "$JSON" -eq 0 ] && echo "## Dependency scan: govulncheck"
+      govulncheck ./... > "$REPORT" 2>&1
+      vrc=$?
+      if [ "$vrc" -eq 3 ]; then
+        [ "$JSON" -eq 0 ] && tail -n 30 "$REPORT"
+        HIGH=1
+      elif [ "$vrc" -ne 0 ]; then
+        [ "$JSON" -eq 1 ] && SKIPPED+=("govulncheck: failed (exit $vrc)")
+        [ "$JSON" -eq 1 ] || echo "## govulncheck failed (exit $vrc) — recorded skip, not a finding"
+      else
+        [ "$JSON" -eq 0 ] && echo "No known vulnerabilities in reachable code"
+      fi
+    else
+      [ "$JSON" -eq 1 ] && SKIPPED+=("govulncheck: not installed")
+      [ "$JSON" -eq 1 ] || echo "## Dependency scan: govulncheck — SKIPPED (not installed; go install golang.org/x/vuln/cmd/govulncheck@latest)"
+    fi
+    # go vet executes with every toolchain; findings are surfaced, never HIGH
+    # (vet reports quality issues, not proven vulnerabilities).
+    if command -v go >/dev/null 2>&1; then
+      [ "$JSON" -eq 0 ] && echo "## SAST: go vet"
+      if ! go vet ./... > "$REPORT" 2>&1; then
+        [ "$JSON" -eq 0 ] && tail -n 20 "$REPORT"
+        [ "$JSON" -eq 1 ] && SKIPPED+=("go vet: findings — run 'go vet ./...'")
+      else
+        [ "$JSON" -eq 0 ] && echo "go vet clean"
+      fi
+    else
+      [ "$JSON" -eq 1 ] && SKIPPED+=("go vet: go not on PATH")
+      [ "$JSON" -eq 1 ] || echo "## SAST: go vet — SKIPPED (go not on PATH; install: https://go.dev/dl/)"
+    fi
+    if command -v staticcheck >/dev/null 2>&1; then
+      [ "$JSON" -eq 1 ] || echo "## SAST: staticcheck — run 'staticcheck ./...' and fix findings"
+    else
+      [ "$JSON" -eq 1 ] && SKIPPED+=("staticcheck: not installed")
+      [ "$JSON" -eq 1 ] || echo "## SAST: staticcheck — SKIPPED (not installed; go install honnef.co/go/tools/cmd/staticcheck@latest)"
     fi
     ;;
   java|android)

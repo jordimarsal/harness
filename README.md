@@ -323,7 +323,7 @@ Badge contract: any "built with harness" badge must link
 
 ## Stacks
 
-TypeScript · Node.js · Java · Python · Android · Rust · Generic — 7 stacks.
+TypeScript · Node.js · Java · Python · Android · Go · Rust · Generic — 8 stacks.
 
 ## Uninstall
 

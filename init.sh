@@ -363,7 +363,7 @@ fi
 
 # ── Stack detection ────────────────────────────────────
 detect_stack() {
-  # Priority: TypeScript > Node > Android > Java > Python > Rust > Generic
+  # Priority: TypeScript > Node > Android > Java > Python > Go > Rust > Generic
   if [ -f "tsconfig.json" ]; then
     echo "typescript"
     return
@@ -382,6 +382,10 @@ detect_stack() {
   fi
   if [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
     echo "python"
+    return
+  fi
+  if [ -f "go.mod" ]; then
+    echo "go"
     return
   fi
   if [ -f "Cargo.toml" ]; then
@@ -603,6 +607,16 @@ case "$STACK" in
       TEST_CMD="python3 -m pytest -q tests"
       BUILD_CMD="echo 'no build step for python'"
       warn "uv not found — falling back to python3/pytest (install: https://docs.astral.sh/uv/)"
+    fi
+    ;;
+  go)
+    TEST_CMD="go test ./... -race -count=1"
+    BUILD_CMD="go build ./..."
+    # No fallback runner exists for Go: the commands are written as-is, but a
+    # missing toolchain is surfaced instead of silently writing gates that
+    # would fail on first run (same philosophy as the python/uv fallback).
+    if ! command -v go >/dev/null 2>&1; then
+      warn "go not found on PATH — commands assume the Go toolchain (install: https://go.dev/dl/)"
     fi
     ;;
   rust)

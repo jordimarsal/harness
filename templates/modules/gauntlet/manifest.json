@@ -1,7 +1,7 @@
 {
   "name": "gauntlet",
   "description": "Sequential adversarial review gauntlet (4 passes) with a mechanical gate script — hybrid-compatible",
-  "stacks": ["typescript", "node", "android", "java", "python", "rust", "generic"],
+  "stacks": ["typescript", "node", "android", "java", "python", "go", "rust", "generic"],
   "injects": [
     { "src": "gauntlet-protocol.md", "dst": "docs/gauntlet-protocol.md", "mode": "copy" },
     { "src": "gauntlet.sh", "dst": "harness/tools/gauntlet.sh", "mode": "copy" },

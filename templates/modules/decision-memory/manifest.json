@@ -1,7 +1,7 @@
 {
   "name": "decision-memory",
   "description": "ADR files for decisions worth remembering beyond a feature",
-  "stacks": ["typescript", "node", "android", "java", "python", "rust", "generic"],
+  "stacks": ["typescript", "node", "android", "java", "python", "go", "rust", "generic"],
   "injects": [
     { "src": "ADR-template.md", "dst": "harness/decisions/_template.md", "mode": "copy-if-missing" }
   ],
