@@ -1016,6 +1016,9 @@ test_security_audit_go_stack() {
   else
     FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: audit-security.sh non-zero without Go toolchain")
     echo "    FAIL: go-stack audit should degrade with exit 0"
+    echo "    DEBUG: p=$p"
+    echo "    DEBUG: audit-go.txt contents:"
+    sed -n '1,25p' "$d/audit-go.txt" 2>/dev/null | sed 's/^/      /'
   fi
   assert_grep "$t" "stack: go" "$d/audit-go.txt"
   assert_grep "$t" "go vet — SKIPPED" "$d/audit-go.txt"

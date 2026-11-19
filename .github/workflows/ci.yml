@@ -26,6 +26,15 @@ jobs:
       - name: Syntax check (node)
         run: node --check bin/init.js
 
+      - name: Debug runner env (temporary)
+        run: |
+          echo "PATH=$PATH"
+          command -v go || echo "no go on PATH"
+          ls -la /usr/bin/go /usr/local/go/bin/go /usr/local/bin/go 2>/dev/null || true
+          command -v govulncheck || echo "no govulncheck"
+          command -v staticcheck || echo "no staticcheck"
+          bash --version | head -1
+
       - name: Shellcheck
         run: shellcheck init.sh install.sh init-verify.sh templates/tools/commit.sh tests/test-install.sh tests/e2e-go.sh tests/test-skill-sdd.sh tests/test-skills.sh tests/test-skill-gauntlet.sh skills/adversarial-review-gauntlet/scripts/gauntlet.sh
 
