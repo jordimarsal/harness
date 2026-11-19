@@ -144,6 +144,24 @@ path_without() {  # path_without <tool> — echo $PATH minus directories providi
   printf '%s' "$out"
 }
 
+hermetic_bin() {  # hermetic_bin — echo a PATH with ONLY the tools the harness
+  # scripts need. Stripping go from $PATH (path_without) is not enough on
+  # hosted runners: they ship /usr/bin/go, and /usr/bin also owns bash, grep,
+  # mktemp… (merged-usr makes /bin the same directory) — stripping go guts
+  # the very toolchain the scripts run on (exit 127, empty reports).
+  local stub="$TMP_ROOT/hermetic-bin" tool
+  mkdir -p "$stub"
+  for tool in bash git grep sed awk mktemp tail head cat rm tr cp mv ln chmod \
+              basename date dirname env find id mkdir rmdir sort python3; do
+    command -v "$tool" >/dev/null 2>&1 || {
+      echo "hermetic_bin: host is missing core tool '$tool'" >&2
+      return 1
+    }
+    ln -sf "$(command -v "$tool")" "$stub/$tool"
+  done
+  printf '%s' "$stub"
+}
+
 run_test() {  # run_test <name> — echoes header
   echo ""
   echo "=== $1 ==="
@@ -556,9 +574,13 @@ test_go_stack() {
   run_test "$t"
   local d; d=$(new_project "go-stack")
   touch "$d/go.mod"
-  # PATH without go: deterministic warn path — commands are written as-is, the
-  # missing toolchain is surfaced (no fallback runner exists for Go).
-  (cd "$d" && PATH="$(path_without go)" "$INIT" --tool=opencode > "$d/init-output.txt" 2>&1) || {
+  # Hermetic PATH (no go anywhere): deterministic warn path — commands are
+  # written as-is, the missing toolchain is surfaced (no fallback runner
+  # exists for Go).
+  local p; p="$(hermetic_bin)" || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: hermetic bin incomplete"); return
+  }
+  (cd "$d" && PATH="$p" "$INIT" --tool=opencode > "$d/init-output.txt" 2>&1) || {
     FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: init.sh exited non-zero"); return
   }
   PASS=$((PASS + 1))
@@ -1007,21 +1029,23 @@ test_security_audit_go_stack() {
     FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: init.sh exited non-zero"); return
   }
   PASS=$((PASS + 1))
-  # PATH stripped of the Go toolchain: deterministic degradation path (same
-  # shape as rust without cargo-audit — mode stays automated, skips recorded).
-  local p; p="$(path_without go)"
-  p="$(PATH="$p" path_without govulncheck)"
+  # Hermetic PATH: no go, no govulncheck, no staticcheck — deterministic
+  # degradation (same shape as rust without cargo-audit: mode stays automated,
+  # skips recorded).
+  local p; p="$(hermetic_bin)" || {
+    FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: hermetic bin incomplete"); return
+  }
   if (cd "$d" && PATH="$p" bash harness/tools/audit-security.sh > audit-go.txt 2>&1); then
     PASS=$((PASS + 1))
   else
     FAIL=$((FAIL + 1)); FAILED_NAMES+=("$t: audit-security.sh non-zero without Go toolchain")
     echo "    FAIL: go-stack audit should degrade with exit 0"
+    echo "    report contents (first lines):"
+    sed -n '1,15p' "$d/audit-go.txt" 2>/dev/null | sed 's/^/      /'
   fi
   assert_grep "$t" "stack: go" "$d/audit-go.txt"
   assert_grep "$t" "go vet — SKIPPED" "$d/audit-go.txt"
-  if ! PATH="$p" command -v govulncheck >/dev/null 2>&1; then
-    assert_grep "$t" "govulncheck — SKIPPED" "$d/audit-go.txt"
-  fi
+  assert_grep "$t" "govulncheck — SKIPPED" "$d/audit-go.txt"
   # JSON mode: protocol v1 with the go stack, automated mode, recorded skips.
   if (cd "$d" && PATH="$p" bash harness/tools/audit-security.sh --json > audit-go.json 2>/dev/null); then
     PASS=$((PASS + 1))

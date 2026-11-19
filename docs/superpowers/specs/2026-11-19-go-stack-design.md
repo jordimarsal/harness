@@ -90,7 +90,10 @@ this feature; everything else is wiring.
   without Go. *(Amended 2026-11-19: both tests live in `tests/test-install.sh`
   next to the existing security-audit degradation tests —
   `tests/test-security.sh` is the security-remediation regression suite, not
-  the audit-tool suite.)*
+  the audit-tool suite.)* Both tests run against a **hermetic stub PATH**
+  (`hermetic_bin`): stripping go from `$PATH` proved insufficient — hosted
+  runners ship `/usr/bin/go`, and `/usr/bin` also owns bash/grep/mktemp
+  (merged-usr), so the strip guts the toolchain the scripts run on.
 - **R11 — end-to-end, toolchain required.** In a temp project with `go.mod`
   (`go mod init`), one tiny package and one table-driven test, `init.sh`
   SHALL complete with the test block green, executing the real
