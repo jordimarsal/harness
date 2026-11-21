@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.12.1 — 2026-11-21
+
+- **feat(vertical-slices)**: new **Demo integrity** section in the slicing
+  protocol. A recorded demo is evidence, not theatre: it runs against the real
+  backend the spec declares (e.g. `demo/config.*.yaml`) with real tool names
+  and real outputs; if that backend cannot start, the honest outcome is a
+  **blocked** task naming the failure — never a mock backend, an invented
+  tool, or fabricated transcript content. CI tests may use fixtures; the
+  Completion-Gate recording may not. Found in the wild: two consecutive
+  recorded demos against fabricated backends (an invented `convert` tool) that
+  unit tests and a lenient reviewer both passed — only the live-demo
+  requirement caught them.
+
 ## v0.12.0 — 2026-11-19
 
 - **feat(stacks)**: Go joins the supported stacks (8th). `go.mod` at the root
