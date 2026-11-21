@@ -65,3 +65,11 @@ slice contract approved at the start, the human reviewing diffs
 continuously, the recorded demo as the Completion Gate. Gates get lighter
 and more frequent — that is the point. The risk hybrid's evidence controls
 compensate for is bounded by slice size: a thin slice is cheap to redo.
+
+## Demo integrity
+
+A recorded demo is evidence, not theatre. It runs against the real backend the
+spec declares (e.g. `demo/config.*.yaml`) with real tool names and real outputs.
+If that backend cannot start, the honest outcome is a **blocked** task naming
+the failure — never a mock backend, an invented tool, or fabricated transcript
+content. CI tests may use fixtures; the Completion-Gate recording may not.
