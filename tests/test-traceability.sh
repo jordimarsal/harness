@@ -98,6 +98,63 @@ for mode in claude opencode; do
   fi
 done
 
+# ── (f) bootstrap first-feature: specs en vol, res done -> PASS explícit ────
+BOOT="$TMP_ROOT/boot"
+mkdir -p "$BOOT/harness/specs/skeleton" "$BOOT/harness/progress" "$BOOT/tests"
+printf '## R1\nThe system shall boot the walking skeleton.\n' > "$BOOT/harness/specs/skeleton/requirements.md"
+printf '{"features": [{"name": "skeleton", "status": "in_progress"}]}' > "$BOOT/harness/feature_list.json"
+out=$(python3 "$TOOL" --all "$BOOT" 2>&1)
+code=$?
+if [ "$code" -eq 0 ] && echo "$out" | grep -q "VERDICT: PASS (bootstrap"; then
+  ok "bootstrap --all -> exit 0 amb PASS (bootstrap)"
+else
+  ko "bootstrap --all" "exit=$code out=$out"
+fi
+
+# ── (g) bootstrap en JSON: verdict PASS + flag bootstrap additiu ────────────
+jout=$(python3 "$TOOL" --all --json "$BOOT" 2>&1)
+jcode=$?
+if [ "$jcode" -eq 0 ] \
+   && printf '%s' "$jout" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['verdict']=='PASS' and d['bootstrap'] is True and d['features']==[]" 2>/dev/null; then
+  ok "bootstrap --json -> PASS + bootstrap:true + features:[]"
+else
+  ko "bootstrap --json" "exit=$jcode out=$jout"
+fi
+
+# ── (h) --all sense cap spec -> continua sent usage error (exit 2) ──────────
+NOSPEC="$TMP_ROOT/nospec"
+mkdir -p "$NOSPEC/harness"
+printf '{"features": [{"name": "x", "status": "pending"}]}' > "$NOSPEC/harness/feature_list.json"
+out=$(python3 "$TOOL" --all "$NOSPEC" 2>&1)
+code=$?
+if [ "$code" -eq 2 ] && echo "$out" | grep -q "no \`done\` features"; then
+  ok "--all sense specs -> exit 2 (usage error es manté)"
+else
+  ko "--all sense specs" "exit=$code out=$out"
+fi
+
+# ── (i) regressió bootstrap: amb UNA done, --all la selecciona (no bootstrap) ─
+DONE1="$TMP_ROOT/done1"
+mkdir -p "$DONE1/harness/specs/a" "$DONE1/harness/specs/b" "$DONE1/harness/progress" "$DONE1/tests"
+printf '## R1\nThe system shall do a.\n' > "$DONE1/harness/specs/a/requirements.md"
+printf '## R1\nThe system shall do b.\n' > "$DONE1/harness/specs/b/requirements.md"
+cat > "$DONE1/harness/progress/impl_a.md" << 'IMPL'
+feature: a
+
+| Requirement | Test(s) | Implementation file(s) | Status |
+|-------------|---------|------------------------|--------|
+| R1          | R1      | x.py                   | done   |
+IMPL
+printf "test('R1 a', () => {});\n" > "$DONE1/tests/test_a.js"
+printf '{"features": [{"name": "a", "status": "done"}, {"name": "b", "status": "in_progress"}]}' > "$DONE1/harness/feature_list.json"
+out=$(python3 "$TOOL" --all "$DONE1" 2>&1)
+code=$?
+if [ "$code" -eq 0 ] && echo "$out" | grep -q "## a: 1/1" && ! echo "$out" | grep -q "bootstrap"; then
+  ok "regressió: amb una done, --all la selecciona i no diu bootstrap"
+else
+  ko "regressió done+inflight" "exit=$code out=$out"
+fi
+
 # ── Resum ───────────────────────────────────────────────────────────────────
 echo ""
 echo "test-traceability: $PASS pass, $FAIL fail"

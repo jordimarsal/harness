@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.12.2 — 2026-11-23
+
+- **fix(traceability)**: first-feature bootstrap. `check-traceability.py --all`
+  with zero `done` features but at least one spec in flight (spec_ready /
+  in_progress with a `requirements.md`) now exits **0** with an explicit
+  `VERDICT: PASS (bootstrap …)` instead of the usage error (exit 2) that made
+  the first feature's gate structurally unfailable — the only S1 that ever
+  passed did so through a premature flip to `done`, which was itself an
+  incident. JSON stays protocol 1 with an additive `bootstrap: true` flag;
+  `--all` with no spec directories at all remains a usage error (exit 2).
+  Found in the wild: farga-tui S1, blocked for a full session by this loop.
+
 ## v0.12.1 — 2026-11-21
 
 - **feat(vertical-slices)**: new **Demo integrity** section in the slicing

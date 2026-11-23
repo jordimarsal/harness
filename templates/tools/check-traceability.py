@@ -20,7 +20,9 @@ Usage:
   check-traceability.py --feature NAME [--json] [root]
   check-traceability.py --help
 
-Exit codes: 0 covered (or --help), 1 gaps, 2 usage error.
+Exit codes: 0 covered (or --help; --all also passes with an explicit
+bootstrap verdict when specs exist but nothing is `done` yet — the
+first-feature state gates nothing), 1 gaps, 2 usage error.
 """
 
 from __future__ import annotations
@@ -311,6 +313,26 @@ def _done_features(root: Path) -> set[str]:
     }
 
 
+def _bootstrap_pending(root: Path) -> bool:
+    """True when specs exist and at least one feature is not `done` yet.
+
+    The first-feature bootstrap state: a walking skeleton may be spec_ready or
+    in_progress with its spec directory present while nothing is `done`.
+    Per this tool's own contract an in-flight feature has no implementation
+    table, which is not a traceability gap — so `--all` must pass with an
+    explicit bootstrap verdict instead of failing the run with a usage error
+    (the premature flip to `done` this replaces was itself an incident).
+    """
+    specs_dir = root / "harness" / "specs"
+    if not specs_dir.is_dir():
+        return False
+    done = _done_features(root)
+    return any(
+        entry.is_dir() and (entry / "requirements.md").is_file() and entry.name not in done
+        for entry in sorted(specs_dir.iterdir())
+    )
+
+
 def _selected_features(root: Path, all_features: bool, feature: str | None) -> list[str]:
     if not all_features:
         if feature is None:
@@ -344,6 +366,10 @@ def _feature_names(
     if all_features:
         names = _selected_features(root, all_features, feature)
         if not names:
+            if _bootstrap_pending(root):
+                # First-feature bootstrap: nothing `done` yet, so --all gates
+                # nothing (main emits the explicit bootstrap PASS).
+                return []
             print("error: no `done` features with a spec directory found", file=sys.stderr)
             return None
         return names
@@ -383,6 +409,27 @@ def _emit(results: "list[_FeatureCheck]", verdict: str, as_json: bool) -> None:
         print(f"VERDICT: {verdict}")
 
 
+def _emit_bootstrap(as_json: bool) -> None:
+    """First-feature bootstrap verdict: PASS with nothing traced (see _bootstrap_pending)."""
+    if as_json:
+        print(
+            json.dumps(
+                {
+                    "tool": "check-traceability",
+                    "protocol": 1,
+                    "verdict": "PASS",
+                    "bootstrap": True,
+                    "features": [],
+                }
+            )
+        )
+    else:
+        print(
+            "VERDICT: PASS (bootstrap — no `done` features yet; nothing to trace; "
+            "use --feature NAME to check one in flight)"
+        )
+
+
 def main(argv: list[str]) -> int:
     parsed = parse_args(argv)
     if isinstance(parsed, int):
@@ -395,6 +442,9 @@ def main(argv: list[str]) -> int:
     names = _feature_names(root, all_features, feature)
     if names is None:
         return 2
+    if all_features and not names:
+        _emit_bootstrap(as_json)
+        return 0
 
     results = [check_feature(root, n) for n in names]
     empty = [r["name"] for r in results if r["requirements"] == 0]
