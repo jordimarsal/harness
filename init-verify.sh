@@ -102,7 +102,11 @@ echo "── 3. Running tests ────────────────�
 
 # Auto-detect test command based on stack
 TEST_CMD=""
-if [ -f "tsconfig.json" ]; then
+# A project's own test script wins: a greenfield TS project may ship tsconfig.json
+# before its dependencies are installed, and `npx --no-install vitest` would fail.
+if [ -f "package.json" ] && grep -q '"test"[[:space:]]*:' package.json; then
+  TEST_CMD="npm test 2>&1"
+elif [ -f "tsconfig.json" ]; then
   TEST_CMD="npx --no-install vitest run 2>&1"
 elif [ -f "package.json" ]; then
   TEST_CMD="npm test 2>&1"

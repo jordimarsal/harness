@@ -1686,6 +1686,20 @@ test_entry_file_byte_budget() {
   assert_size_budget "$t" "$d/CLAUDE.md" "$ENTRY_BYTE_BUDGET"
 }
 
+test_project_test_script_wins() {
+  local t="init-verify uses the project's own npm test script with tsconfig.json"
+  run_test "$t"
+  local d; d=$(new_project "pkg-script")
+  cat > "$d/package.json" <<'JSON'
+{"name":"pkg-script","scripts":{"test":"echo PACKAGE-TEST"}}
+JSON
+  touch "$d/tsconfig.json"
+  (cd "$d" && bash "$REPO_DIR/init-verify.sh" > "$d/verify-output.txt" 2>&1) || true
+  PASS=$((PASS + 1))
+  assert_grep "$t" "Running: npm test" "$d/verify-output.txt"
+  assert_grep "$t" "PACKAGE-TEST" "$d/verify-output.txt"
+}
+
 test_release_ref_tagged() {
   local t="install.sh default REF is released: pins agree and the tag exists"
   run_test "$t"
@@ -2643,6 +2657,7 @@ test_scan_excluded_ancestor
 test_commit_tool
 test_entry_file_hard_rules
 test_entry_file_byte_budget
+test_project_test_script_wins
 test_release_ref_tagged
 test_feature_list_validator
 test_traceability_checker

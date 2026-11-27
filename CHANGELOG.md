@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.12.3 — 2026-11-27
+
+- **fix(init-verify)**: a project's own `package.json` test script wins over the
+  bare `npx --no-install vitest run` fallback when `tsconfig.json` is present.
+  Greenfield TypeScript projects scaffolded by `farga-core up` arrive with a
+  runnable `npm test` before dependencies are installed, so the first
+  `harness/init.sh` is green instead of failing with "No test evidence".
+
 ## v0.12.2 — 2026-11-23
 
 - **fix(traceability)**: first-feature bootstrap. `check-traceability.py --all`
