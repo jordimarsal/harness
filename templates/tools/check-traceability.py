@@ -144,18 +144,33 @@ def _js_tests_mention(tests_dir: Path, pat: "re.Pattern[str]") -> bool:
     return False
 
 
+def _go_tests_define(root: Path, identifier: str) -> bool:
+    """Go tests live next to the code, so scan the whole tree for `func <name>`."""
+    pat = re.compile(rf"^func\s+{re.escape(identifier)}\s*\(", re.MULTILINE)
+    for tf in root.rglob("*_test.go"):
+        if ".git" in tf.parts or "node_modules" in tf.parts:
+            continue
+        try:
+            if pat.search(tf.read_text(encoding="utf-8", errors="replace")):
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def _search_tests_dir(root: Path, identifier: str) -> bool:
     """File-name stem, python function/class, or JS test title matching `identifier`."""
     tests_dir = root / "tests"
-    if not tests_dir.is_dir():
-        return False
-    if _py_tests_define(tests_dir, identifier):
-        return True
-    # JS test stacks (node:test): match the identifier inside a test()/it() title.
-    pat = re.compile(
-        rf"(?:^|[^A-Za-z0-9_])(?:test|it)\s*\(\s*['\"`][^'\"`]*{re.escape(identifier)}"
-    )
-    return _js_tests_mention(tests_dir, pat)
+    if tests_dir.is_dir():
+        if _py_tests_define(tests_dir, identifier):
+            return True
+        # JS test stacks (node:test): match the identifier inside a test()/it() title.
+        pat = re.compile(
+            rf"(?:^|[^A-Za-z0-9_])(?:test|it)\s*\(\s*['\"`][^'\"`]*{re.escape(identifier)}"
+        )
+        if _js_tests_mention(tests_dir, pat):
+            return True
+    return _go_tests_define(root, identifier)
 
 
 def test_identifier_exists(root: Path, identifier: str) -> bool:

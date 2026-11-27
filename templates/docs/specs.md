@@ -221,6 +221,15 @@ traceability table:
 | R2          | auth_test.R2   | src/auth/token.py      | done   |
 ```
 
+The progress document must also carry an attribution line so the checker can
+match it to a feature (protocol v1.1):
+
+```markdown
+feature: <feature-name>
+```
+
+Without it the table is ignored and every requirement is reported as uncovered.
+
 A feature may not transition to `done` until every row in this table has status `done`
 and the completion gate reviewer has confirmed the mapping is accurate.
 
